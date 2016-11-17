@@ -57,7 +57,7 @@ Running ``my_script`` via ``qsub``
    def run(param, filename, dirpath, **_):
        return {
            'command': 'qsub -o stdout.log -e stderr.log',
-           'stdin': '''
+           'input': '''
            cd '{dirpath}'
            my_script '{filename}'
            '''.format(**locals()),

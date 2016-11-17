@@ -61,7 +61,7 @@ Running ``my_script`` via ``qsub``
    def run(param, filename, dirpath, **_):
        return {
            'command': 'qsub -o stdout.log -e stderr.log',
-           'stdin': '''
+           'input': '''
            cd '{dirpath}'
            my_script '{filename}'
            '''.format(**locals()),
@@ -201,7 +201,7 @@ def cli_run(source_file, run_file, param_files):
         command = cmdspec['command']
         proc = subprocess.run(
             command,
-            input=cmdspec['stdin'],
+            input=cmdspec['input'],
             universal_newlines=True,
             shell=isinstance(command, str),
             cwd=os.path.dirname(path),

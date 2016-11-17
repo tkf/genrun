@@ -1,7 +1,7 @@
 def run(**kwds):
     return {
         'command': ['bash', '-ex'],
-        'stdin': """
+        'input': """
         echo | cat '{filepath}' -
         """.format(**kwds),
     }
