@@ -1,0 +1,8 @@
+base:
+    spam:
+        egg:
+            omega: 0
+axes:
+    spam.egg.alpha: 'arange(0.0, 2.0, 1.0)'
+    spam.beta: 'linspace(-1, 1, num=3)'
+format: '{i}/run.json'
