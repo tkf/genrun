@@ -204,6 +204,7 @@ def cli_run(source_file, run_file, param_files):
             input=cmdspec['stdin'],
             universal_newlines=True,
             shell=isinstance(command, str),
+            cwd=os.path.dirname(path),
         )
         if proc.returncode != 0:
             os.remove(lock_file)
