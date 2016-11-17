@@ -182,6 +182,7 @@ def cli_run(source_file, run_file, param_files):
 
     runspec = load_run(run_file)
     for path in param_files:
+        path = os.path.abspath(path)
 
         lock_file = os.path.join(os.path.dirname(path), '.lock')
         if os.path.exists(lock_file):
