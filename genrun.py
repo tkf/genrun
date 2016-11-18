@@ -80,33 +80,28 @@ __author__ = 'Takafumi Arakaki'
 __license__ = None
 
 
-def load_any(path):
-    """
-    Load any data file from given path (distinguished by file extension)
-    """
+def param_module(path):
     if path.lower().endswith((".yaml", ".yml")):
         import yaml
-        loader = yaml.load
+        return yaml
     elif path.lower().endswith(".json"):
         import json
-        loader = json.load
+        return json
     else:
         raise ValueError('data format of {!r} is not supported'.format(path))
 
+
+def load_any(path):
+    """
+    Load data from given path; data format is determined by file extension
+    """
+    loader = param_module(path).load
     with open(path) as f:
         return loader(f)
 
 
 def dump_any(path, obj):
-    if path.lower().endswith((".yaml", ".yml")):
-        import yaml
-        dumper = yaml.dump
-    elif path.lower().endswith(".json"):
-        import json
-        dumper = json.dump
-    else:
-        raise ValueError('data format of {!r} is not supported'.format(path))
-
+    dumper = param_module(path).dump
     with open(path, 'w') as f:
         dumper(obj, f)
 
