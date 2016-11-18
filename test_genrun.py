@@ -3,7 +3,8 @@ import pytest
 from genrun import dump_any, cli_gen, cli_run
 
 
-RUNPY_DEFAULT = r"""
+RUNPY = {}
+RUNPY["default"] = r"""
 def run(dirpath, **_):
     return {
         'command': ['python', '-i', dirpath],
@@ -11,14 +12,25 @@ def run(dirpath, **_):
 import os
 import sys
 dirpath = sys.argv[-1]
-open(os.path.join(dirpath, "argv"), "w").write('\n'.join(sys.argv))
+open(os.path.join(dirpath, "argv"), "w").write("\n".join(sys.argv))
 open(os.path.join(dirpath, "cwd"), "w").write(os.getcwd())
 ''',
     }
 """
 
+RUNPY["noinput"] = """
+def run(dirpath, **_):
+    return {
+        'command': ['python', '-c', r'import os; \
+import sys; \
+dirpath = sys.argv[-1]; \
+open(os.path.join(dirpath, "argv"), "w").write("\\n".join(sys.argv)); \
+open(os.path.join(dirpath, "cwd"), "w").write(os.getcwd())', dirpath],
+    }
+"""
 
-def make_runpy(tmpdir, code=RUNPY_DEFAULT, filename="run.py"):
+
+def make_runpy(tmpdir, code=RUNPY["default"], filename="run.py"):
     run_file = tmpdir.join(filename)
     run_file.write(code)
     return str(run_file)
@@ -47,9 +59,10 @@ def test_gen(tmpdir, num):
 
 
 @pytest.mark.parametrize('num', [1, 3])
-def test_run(tmpdir, num):
+@pytest.mark.parametrize('runpy', ['default', 'noinput'])
+def test_run(tmpdir, num, runpy):
     source_file = make_source(tmpdir, axes={'alpha': repr(range(num))})
-    run_file = make_runpy(tmpdir)
+    run_file = make_runpy(tmpdir, RUNPY[runpy])
     cli_gen(source_file)
     cli_run(source_file, run_file, None)
 

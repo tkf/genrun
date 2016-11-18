@@ -198,13 +198,14 @@ def cli_run(source_file, run_file, param_files):
             filepath=path,
             source=src,
         )
-        command = cmdspec['command']
+        command = cmdspec.pop('command')
         proc = subprocess.run(
             command,
-            input=cmdspec['input'],
             universal_newlines=True,
-            shell=isinstance(command, str),
-            cwd=os.path.dirname(path),
+            **dict(
+                shell=isinstance(command, str),
+                cwd=os.path.dirname(path),
+                **cmdspec)
         )
         if proc.returncode != 0:
             os.remove(lock_file)
