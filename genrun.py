@@ -48,9 +48,8 @@ does what conceptually equivalently to the following code
        param['spam']['gamma'] = gamma
        run(param)
 
-where the function `run` saves `param` does what is defined by
-``run.yaml`` (e.g., save `param` in file and submit a job via
-``qsub``; see blow).
+where the function `run` saves `param` and does what is defined in
+``run.py`` (e.g., submit a job via ``qsub``; see blow).
 
 
 Running ``my_script`` via ``qsub``
