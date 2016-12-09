@@ -194,14 +194,17 @@ def cli_run(source_file, run_file, param_files):
             source=src,
         )
         command = cmdspec.pop('command')
-        proc = subprocess.run(
+        pinput = cmdspec.pop('input', None)
+        proc = subprocess.Popen(
             command,
             universal_newlines=True,
+            stdin=subprocess.PIPE,
             **dict(
                 shell=isinstance(command, str),
                 cwd=os.path.dirname(path),
                 **cmdspec)
         )
+        proc.communicate(pinput)
         if proc.returncode != 0:
             os.remove(lock_file)
             raise RuntimeError("{} failed".format(command))
