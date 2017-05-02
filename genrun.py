@@ -79,13 +79,23 @@ __author__ = 'Takafumi Arakaki'
 __license__ = None
 
 
+class JsonModule(object):
+
+    def __init__(self, json):
+        self.json = json
+        self.load = json.load
+
+    def dump(self, obj, file):
+        self.json.dump(obj, file, sort_keys=True)
+
+
 def param_module(path):
     if path.lower().endswith((".yaml", ".yml")):
         import yaml
         return yaml
     elif path.lower().endswith(".json"):
         import json
-        return json
+        return JsonModule(json)
     else:
         raise ValueError('data format of {!r} is not supported'.format(path))
 
@@ -120,7 +130,7 @@ def set_dotted(d, k, v):
 
 def gen_parameters(src, debug=False):
     axes = {}
-    for name, code in src['axes'].items():
+    for name, code in sorted(src['axes'].items(), key=lambda x: x[0]):
         try:
             axes[name] = list(src_eval(code))
         except:
