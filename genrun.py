@@ -6,12 +6,6 @@
  genrun -- generate parameter files and run programs on them
 =============================================================
 
-::
-
-   genrun gen SOURCE_FILE             # generate parameter files
-   genrun run SOURCE_FILE RUN_FILE    # run a program defined in RUN_FILE
-   genrun all SOURCE_FILE RUN_FILE    # gen+run combo
-
 
 Examples
 ========
@@ -77,6 +71,10 @@ import subprocess
 __version__ = '0.0.0'
 __author__ = 'Takafumi Arakaki'
 __license__ = None
+
+
+class GenRunExit(RuntimeError):
+    """ Error to be raised on known erroneous situations. """
 
 
 class JsonModule(object):
@@ -160,10 +158,46 @@ def load_run(run_file):
     return ns
 
 
+SOURCE_FILE_CANDIDATES = ['source.yaml', 'source.json']
+
+
+def find_source_file(source_file):
+    if not source_file:
+        for source_file in SOURCE_FILE_CANDIDATES:
+            if os.path.exists(source_file):
+                break
+        else:
+            raise GenRunExit('source_file is not given and none of the'
+                             ' following files are present in the current'
+                             ' directory: {}'
+                             .format(', '.join(SOURCE_FILE_CANDIDATES)))
+        print('Using:', source_file)
+    return source_file
+
+
+def find_run_file(run_file):
+    if not run_file:
+        directory = os.getcwd()
+        parent = os.path.dirname(directory)
+        while parent != directory:
+            run_file = os.path.join(directory, 'run.py')
+            if os.path.exists(run_file):
+                break
+            directory = parent
+            parent = os.path.dirname(parent)
+        else:
+            raise GenRunExit('run_file is not given and run.py is'
+                             ' not found in here or any of the parent'
+                             ' directories.')
+        print('Using:', run_file)
+    return run_file
+
+
 def cli_gen(source_file, debug=False):
     """
     Generate parameter files based on `source_file`.
     """
+    source_file = find_source_file(source_file)
     src = load_any(source_file)
 
     basedir = os.path.dirname(source_file)
@@ -177,6 +211,8 @@ def cli_run(source_file, run_file, param_files):
     """
     Run generated parameter files.
     """
+    source_file = find_source_file(source_file)
+    run_file = find_run_file(run_file)
     src = load_any(source_file)
 
     if not param_files:
@@ -223,6 +259,8 @@ def cli_all(source_file, run_file):
     """
     Generate parameter files and then run them.
     """
+    source_file = find_source_file(source_file)
+    run_file = find_run_file(run_file)
     cli_gen(source_file)
     cli_run(source_file, run_file, param_files=None)
 
@@ -230,12 +268,8 @@ def cli_all(source_file, run_file):
 def make_parser(doc=__doc__):
     import argparse
 
-    class FormatterClass(argparse.RawDescriptionHelpFormatter,
-                         argparse.ArgumentDefaultsHelpFormatter):
-        pass
-
     parser = argparse.ArgumentParser(
-        formatter_class=FormatterClass,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         description=doc)
     subparsers = parser.add_subparsers()
 
@@ -246,20 +280,24 @@ def make_parser(doc=__doc__):
             break
         p = subparsers.add_parser(
             command,
-            formatter_class=FormatterClass,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
             help=title,
             description=doc)
         p.set_defaults(func=func)
         return p
 
     def add_argument_source_file(p):
-        p.add_argument('source_file', help="""
-        path to parameter configuration file (typically source.yaml).
-        """)
+        p.add_argument('source_file', nargs='?', help="""
+        Path to parameter configuration file.  If not given or an
+        empty string, searched from the following files (in this
+        order): {}
+        """.format(', '.join(SOURCE_FILE_CANDIDATES)))
 
     def add_argument_run_file(p):
-        p.add_argument('run_file', help="""
-        path to run configuration file (typically run.py).
+        p.add_argument('run_file', nargs='?', help="""
+        Path to run configuration file (typically run.py).  If not
+        given or an empty string, run.py is searched from current
+        directory or parent directories.
         """)
 
     p = subp('gen', cli_gen)
@@ -281,7 +319,13 @@ def make_parser(doc=__doc__):
 def main(args=None):
     parser = make_parser()
     ns = parser.parse_args(args)
-    return (lambda func, **kwds: func(**kwds))(**vars(ns))
+    if not hasattr(ns, 'func'):
+        parser.print_usage()
+        parser.exit(2)
+    try:
+        return (lambda func, **kwds: func(**kwds))(**vars(ns))
+    except GenRunExit as err:
+        parser.exit(1, str(err).strip() + '\n')
 
 
 if __name__ == '__main__':

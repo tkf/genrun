@@ -2,12 +2,6 @@
  genrun -- generate parameter files and run programs on them
 =============================================================
 
-::
-
-   genrun gen SOURCE_FILE             # generate parameter files
-   genrun run SOURCE_FILE RUN_FILE    # run a program defined in RUN_FILE
-   genrun all SOURCE_FILE RUN_FILE    # gen+run combo
-
 
 Examples
 ========
