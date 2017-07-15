@@ -313,6 +313,7 @@ def make_parser(doc=__doc__):
     p = subp('gen', cli_gen)
     p.add_argument('--debug', action='store_true')
     add_argument_source_file(p)
+    add_argument_run_file(p)
 
     p = subp('run', cli_run)
     add_argument_source_file(p)
