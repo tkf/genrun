@@ -1,6 +1,27 @@
 import pytest
 
-from genrun import dump_any, cli_gen, cli_run
+from genrun import dump_any, cli_gen, cli_run, gen_parameters
+
+
+def test_gen_parameters_preprocess():
+    def preprocess(param):
+        if param['x'] + param['y'] > 0:
+            return param
+
+    src = dict(
+        base={},
+        axes=dict(
+            x='[-1, 0, 1]',
+            y='[-1, 0, 1]',
+        )
+    )
+    runspec = dict(preprocess=preprocess)
+    parameters = list(gen_parameters(src, runspec))
+    assert parameters == [
+        {'x': 0, 'y': 1},
+        {'x': 1, 'y': 0},
+        {'x': 1, 'y': 1},
+    ]
 
 
 RUNPY = {}
@@ -50,7 +71,8 @@ def make_source(tmpdir, axes, base={},
 @pytest.mark.parametrize('num', [1, 3])
 def test_gen(tmpdir, num):
     source_file = make_source(tmpdir, axes={'alpha': repr(range(num))})
-    cli_gen(source_file)
+    run_file = '/dev/null'
+    cli_gen(source_file, run_file)
 
     dirs = tmpdir.listdir(lambda p: p.check(dir=True))
     assert len(dirs) == num
@@ -63,7 +85,7 @@ def test_gen(tmpdir, num):
 def test_run(tmpdir, num, runpy):
     source_file = make_source(tmpdir, axes={'alpha': repr(range(num))})
     run_file = make_runpy(tmpdir, RUNPY[runpy])
-    cli_gen(source_file)
+    cli_gen(source_file, run_file)
     cli_run(source_file, run_file, None)
 
     dirs = tmpdir.listdir(lambda p: p.check(dir=True))
@@ -80,7 +102,7 @@ def test_lock(tmpdir):
     """
     source_file = make_source(tmpdir, axes={'alpha': 'range(2)'})
     run_file = make_runpy(tmpdir)
-    cli_gen(source_file)
+    cli_gen(source_file, run_file)
     tmpdir.ensure("0", ".lock")
     cli_run(source_file, run_file, None)
 

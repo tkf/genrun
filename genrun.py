@@ -126,7 +126,7 @@ def set_dotted(d, k, v):
     p[parts[-1]] = v
 
 
-def gen_parameters(src, debug=False):
+def gen_parameters(src, runspec, debug=False):
     axes = {}
     for name, code in sorted(src['axes'].items(), key=lambda x: x[0]):
         try:
@@ -137,13 +137,21 @@ def gen_parameters(src, debug=False):
             import pdb
             pdb.post_mortem()
 
+    try:
+        preprocess = runspec['preprocess']
+    except KeyError:
+        def preprocess(param):
+            return param
+
     keys = sorted(axes)
     parameters = itertools.product(*[axes[name] for name in keys])
     for i, vals in enumerate(parameters):
         param = copy.deepcopy(src['base'])
         for k, v in zip(keys, vals):
             set_dotted(param, k, v)
-        yield param
+        param = preprocess(param)
+        if param is not None:
+            yield param
 
 
 def param_path(src, basedir, i):
@@ -193,15 +201,17 @@ def find_run_file(run_file):
     return run_file
 
 
-def cli_gen(source_file, debug=False):
+def cli_gen(source_file, run_file, debug=False):
     """
     Generate parameter files based on `source_file`.
     """
     source_file = find_source_file(source_file)
+    run_file = find_run_file(run_file)
     src = load_any(source_file)
+    runspec = load_run(run_file)
 
     basedir = os.path.dirname(source_file)
-    for i, param in enumerate(gen_parameters(src, debug)):
+    for i, param in enumerate(gen_parameters(src, runspec, debug)):
         filepath = param_path(src, basedir, i)
         os.makedirs(os.path.dirname(filepath))
         dump_any(filepath, param)
@@ -214,13 +224,13 @@ def cli_run(source_file, run_file, param_files):
     source_file = find_source_file(source_file)
     run_file = find_run_file(run_file)
     src = load_any(source_file)
+    runspec = load_run(run_file)
 
     if not param_files:
         basedir = os.path.dirname(source_file)
-        nparam = sum(1 for _ in gen_parameters(src))  # FIXME: optimize
+        nparam = sum(1 for _ in gen_parameters(src, runspec))  # FIXME:optimize
         param_files = [param_path(src, basedir, i) for i in range(nparam)]
 
-    runspec = load_run(run_file)
     for path in param_files:
         path = os.path.abspath(path)
 
@@ -261,7 +271,7 @@ def cli_all(source_file, run_file):
     """
     source_file = find_source_file(source_file)
     run_file = find_run_file(run_file)
-    cli_gen(source_file)
+    cli_gen(source_file, run_file)
     cli_run(source_file, run_file, param_files=None)
 
 
