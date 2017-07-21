@@ -63,6 +63,8 @@ Running ``my_script`` via ``qsub``
 """
 # [[[end]]]
 
+from __future__ import print_function
+
 import copy
 import os
 import itertools
@@ -166,6 +168,50 @@ def load_run(run_file):
     return ns
 
 
+def indices_to_range(indices):
+    """
+    Convert a list of integers to the range format for sbatch and qsub.
+
+    >>> indices_to_range([0, 1, 2, 3])
+    '0-3'
+    >>> indices_to_range([0, 10, 11, 12])
+    '0,10-12'
+    >>> indices_to_range([0, 1, 2, 10, 11, 12, 100, 101, 102])
+    '0-2,10-12,100-102'
+
+    See:
+
+    - https://slurm.schedmd.com/sbatch.html
+    - http://docs.adaptivecomputing.com/torque/4-2-7/help.htm#topics/commands/qsub.htm#-t
+
+    """
+    assert len(indices) == len(set(indices))
+
+    ranges = []
+    it = iter(indices)
+    try:
+        i = next(it)
+    except StopIteration:
+        return ''
+
+    nonempty = True
+    while nonempty:
+        prev = beg = i
+        for i in it:
+            if i != prev + 1:
+                break
+            prev = i
+        else:
+            nonempty = False
+
+        if beg == prev:
+            ranges.append(str(beg))
+        else:
+            ranges.append('{}-{}'.format(beg, prev))
+
+    return ','.join(ranges)
+
+
 SOURCE_FILE_CANDIDATES = ['source.yaml', 'source.json']
 
 
@@ -265,14 +311,76 @@ def cli_run(source_file, run_file, param_files):
             raise RuntimeError("{} failed".format(command))
 
 
+def cli_run_array(source_file, run_file, param_files):
+    """
+    Run generated parameter files.
+    """
+    source_file = find_source_file(source_file)
+    run_file = find_run_file(run_file)
+    src = load_any(source_file)
+    runspec = load_run(run_file)
+
+    if not param_files:
+        basedir = os.path.dirname(source_file)
+        nparam = sum(1 for _ in gen_parameters(src, runspec))  # FIXME:optimize
+        param_files = [param_path(src, basedir, i) for i in range(nparam)]
+
+    ids = []
+    lock_file_list = []
+    remaining = set(param_files)
+    for i, _ in enumerate(gen_parameters(src, runspec)):
+        path = param_path(src, basedir, i)
+        if path in remaining:
+            remaining.remove(path)
+            lock_file = os.path.join(os.path.dirname(path), '.lock')
+            if os.path.exists(lock_file):
+                print(lock_file, 'exists. skipping...')
+                continue
+            ids.append(i)
+            lock_file_list.append(lock_file)
+            open(lock_file, 'w').close()
+    assert not remaining
+
+    cmdspec = runspec['run_array'](
+        ids=ids,
+        array=indices_to_range(ids),
+        source=src,
+    )
+    command = cmdspec.pop('command')
+    pinput = cmdspec.pop('input', None)
+    proc = subprocess.Popen(
+        command,
+        universal_newlines=True,
+        stdin=subprocess.PIPE,
+        **dict(
+            shell=isinstance(command, str),
+            **cmdspec)
+    )
+    proc.communicate(pinput)
+    if proc.returncode != 0:
+        print('Rolling back (removing lock files)')
+        for lock_file in lock_file_list:
+            print('.', end='', flush=True)
+            try:
+                os.remove(lock_file)
+            except OSError:
+                print('! Cannot remove', lock_file)
+        print()
+        raise GenRunExit('{} failed'.format(command))
+
+
 def cli_all(source_file, run_file):
     """
     Generate parameter files and then run them.
     """
     source_file = find_source_file(source_file)
     run_file = find_run_file(run_file)
+    runspec = load_run(run_file)
     cli_gen(source_file, run_file)
-    cli_run(source_file, run_file, param_files=None)
+    if 'run_array' in runspec:
+        cli_run_array(source_file, run_file, param_files=None)
+    else:
+        cli_run(source_file, run_file, param_files=None)
 
 
 def make_parser(doc=__doc__):
@@ -316,6 +424,11 @@ def make_parser(doc=__doc__):
     add_argument_run_file(p)
 
     p = subp('run', cli_run)
+    add_argument_source_file(p)
+    add_argument_run_file(p)
+    p.add_argument('param_files', nargs='*')
+
+    p = subp('run-array', cli_run_array)
     add_argument_source_file(p)
     add_argument_run_file(p)
     p.add_argument('param_files', nargs='*')
