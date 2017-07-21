@@ -164,7 +164,7 @@ def load_run(run_file):
     with open(run_file) as f:
         code = f.read()
     ns = {}
-    exec(code, None, ns)
+    exec(code, ns)
     return ns
 
 
