@@ -1,6 +1,6 @@
 import pytest
 
-from genrun import dump_any, cli_gen, cli_run, gen_parameters
+from genrun import dump_any, cli_gen, cli_run, cli_unlock, gen_parameters
 
 
 def test_gen_parameters_preprocess():
@@ -109,3 +109,17 @@ def test_lock(tmpdir):
     d0, d1 = sorted(tmpdir.listdir(lambda p: p.check(dir=True)))
     assert not d0.join("argv").check()
     assert d1.join("argv").check()
+
+
+def test_unlock(tmpdir):
+    source_file = make_source(tmpdir, axes={'alpha': 'range(2)'})
+    run_file = make_runpy(tmpdir)
+    cli_gen(source_file, run_file)
+    assert all(tmpdir.join(d, 'run.json').check() for d in '01')
+    tmpdir.ensure("0", ".lock")
+    tmpdir.ensure("1", ".lock")
+    tmpdir.ensure("0", "some_result")
+
+    cli_unlock(source_file, run_file)
+    assert tmpdir.join("0", ".lock").check()
+    assert not tmpdir.join("1", ".lock").check()

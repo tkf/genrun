@@ -383,6 +383,59 @@ def cli_all(source_file, run_file):
         cli_run(source_file, run_file, param_files=None)
 
 
+def find_unfinished(source_file, run_file):
+    """
+    Return an iterator yielding unfinished parameter files.
+    """
+    source_file = find_source_file(source_file)
+    run_file = find_run_file(run_file)
+    src = load_any(source_file)
+    runspec = load_run(run_file)
+    basedir = os.path.dirname(source_file)
+    for i, param in enumerate(gen_parameters(src, runspec)):
+        filepath = param_path(src, basedir, i)
+        dirpath = os.path.dirname(filepath)
+        if set(os.listdir(dirpath)) == {'.lock', os.path.basename(filepath)}:
+            yield filepath
+
+
+def cli_unlock(source_file, run_file):
+    """
+    Remove .lock files from unfinished run directories.
+
+    The run directories with only the .lock and parameter files are
+    considered unfinished.  To list directories to be unlocked (i.e.,
+    dry-run), use list-unfinished command.
+
+    """
+    for filepath in find_unfinished(source_file, run_file):
+        lockfile = os.path.join(os.path.dirname(filepath), '.lock')
+        print('Remove', lockfile)
+        os.remove(lockfile)
+
+
+def cli_list_unfinished(source_file, run_file):
+    """
+    List unfinished run directories.
+
+    See also: unlock
+    """
+    for filepath in find_unfinished(source_file, run_file):
+        print(os.path.dirname(filepath))
+
+
+def cli_len(source_file, run_file):
+    """
+    Print number of parameter files to be generated.
+    """
+    source_file = find_source_file(source_file)
+    run_file = find_run_file(run_file)
+    src = load_any(source_file)
+    runspec = load_run(run_file)
+    nparam = sum(1 for _ in gen_parameters(src, runspec))
+    print(nparam)
+
+
 def make_parser(doc=__doc__):
     import argparse
 
@@ -434,6 +487,18 @@ def make_parser(doc=__doc__):
     p.add_argument('param_files', nargs='*')
 
     p = subp('all', cli_all)
+    add_argument_source_file(p)
+    add_argument_run_file(p)
+
+    p = subp('unlock', cli_unlock)
+    add_argument_source_file(p)
+    add_argument_run_file(p)
+
+    p = subp('list-unfinished', cli_list_unfinished)
+    add_argument_source_file(p)
+    add_argument_run_file(p)
+
+    p = subp('len', cli_len)
     add_argument_source_file(p)
     add_argument_run_file(p)
 
