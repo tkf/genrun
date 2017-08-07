@@ -7,9 +7,9 @@ Examples
 ========
 Simply running::
 
-   genrun all BASE/source.yaml PATH/TO/run.py
+   genrun all
 
-where `BASE/source.yaml` is
+where `./source.yaml` is
 
 .. code:: yaml
 

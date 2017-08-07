@@ -11,9 +11,9 @@ Examples
 ========
 Simply running::
 
-   genrun all BASE/source.yaml PATH/TO/run.py
+   genrun all
 
-where `BASE/source.yaml` is
+where `./source.yaml` is
 
 .. code:: yaml
 
@@ -458,17 +458,17 @@ def make_parser(doc=__doc__):
         return p
 
     def add_argument_source_file(p):
-        p.add_argument('source_file', nargs='?', help="""
+        p.add_argument('--source-file', help="""
         Path to parameter configuration file.  If not given or an
         empty string, searched from the following files (in this
         order): {}
         """.format(', '.join(SOURCE_FILE_CANDIDATES)))
 
     def add_argument_run_file(p):
-        p.add_argument('run_file', nargs='?', help="""
-        Path to run configuration file (typically run.py).  If not
-        given or an empty string, run.py is searched from current
-        directory or parent directories.
+        p.add_argument('--run-file', help="""
+        Path to run configuration file.  If not given or an empty
+        string, run.py is searched from current directory or parent
+        directories.
         """)
 
     p = subp('gen', cli_gen)
