@@ -263,7 +263,7 @@ def cli_gen(source_file, run_file, debug=False):
         dump_any(filepath, param)
 
 
-def cli_run(source_file, run_file, param_files):
+def run_loop(source_file, run_file, param_files):
     """
     Run generated parameter files.
     """
@@ -311,7 +311,7 @@ def cli_run(source_file, run_file, param_files):
             raise RuntimeError("{} failed".format(command))
 
 
-def cli_run_array(source_file, run_file, param_files):
+def run_array(source_file, run_file, param_files):
     """
     Run generated parameter files.
     """
@@ -369,18 +369,36 @@ def cli_run_array(source_file, run_file, param_files):
         raise GenRunExit('{} failed'.format(command))
 
 
-def cli_all(source_file, run_file):
+def cli_all(source_file, run_file, run_type):
     """
     Generate parameter files and then run them.
     """
     source_file = find_source_file(source_file)
     run_file = find_run_file(run_file)
-    runspec = load_run(run_file)
     cli_gen(source_file, run_file)
-    if 'run_array' in runspec:
-        cli_run_array(source_file, run_file, param_files=None)
+    cli_run(source_file, run_file, param_files=None, run_type=run_type)
+
+
+def cli_run(source_file, run_file, param_files, run_type):
+    """
+    Run generated parameter files.
+    """
+    run_file = find_run_file(run_file)
+    runspec = load_run(run_file)
+    if {'run', 'run_array'} <= set(runspec):
+        if not run_type:
+            raise GenRunExit(
+                'Ambiguous `run_type`.  Run file {} contains both'
+                ' `run` and `run_array` functions while --use-array'
+                ' nor --use-loop is given.'
+                .format(run_file))
     else:
-        cli_run(source_file, run_file, param_files=None)
+        run_type = 'array' if 'run_array' in runspec else 'loop'
+
+    if run_type == 'array':
+        run_array(source_file, run_file, param_files)
+    else:
+        run_loop(source_file, run_file, param_files)
 
 
 def find_unfinished(source_file, run_file):
@@ -471,6 +489,19 @@ def make_parser(doc=__doc__):
         directories.
         """)
 
+    def add_argument_run_type(p):
+        p.add_argument('--use-array', dest='run_type', default=None,
+                       action='store_const', const='array',
+                       help="""
+        In case run file contains both `run` and `run_array` function,
+        indicate that `run_array` must be used.
+        """)
+        p.add_argument('--use-loop', dest='run_type', default=None,
+                       action='store_const', const='loop',
+                       help="""
+        Similar to --use-array but use `run` function.
+        """)
+
     p = subp('gen', cli_gen)
     p.add_argument('--debug', action='store_true')
     add_argument_source_file(p)
@@ -479,16 +510,13 @@ def make_parser(doc=__doc__):
     p = subp('run', cli_run)
     add_argument_source_file(p)
     add_argument_run_file(p)
-    p.add_argument('param_files', nargs='*')
-
-    p = subp('run-array', cli_run_array)
-    add_argument_source_file(p)
-    add_argument_run_file(p)
+    add_argument_run_type(p)
     p.add_argument('param_files', nargs='*')
 
     p = subp('all', cli_all)
     add_argument_source_file(p)
     add_argument_run_file(p)
+    add_argument_run_type(p)
 
     p = subp('unlock', cli_unlock)
     add_argument_source_file(p)

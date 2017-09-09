@@ -86,7 +86,7 @@ def test_run(tmpdir, num, runpy):
     source_file = make_source(tmpdir, axes={'alpha': repr(range(num))})
     run_file = make_runpy(tmpdir, RUNPY[runpy])
     cli_gen(source_file, run_file)
-    cli_run(source_file, run_file, None)
+    cli_run(source_file, run_file, None, None)
 
     dirs = tmpdir.listdir(lambda p: p.check(dir=True))
     assert len(dirs) == num
@@ -104,7 +104,7 @@ def test_lock(tmpdir):
     run_file = make_runpy(tmpdir)
     cli_gen(source_file, run_file)
     tmpdir.ensure("0", ".lock")
-    cli_run(source_file, run_file, None)
+    cli_run(source_file, run_file, None, None)
 
     d0, d1 = sorted(tmpdir.listdir(lambda p: p.check(dir=True)))
     assert not d0.join("argv").check()
