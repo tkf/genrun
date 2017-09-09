@@ -65,6 +65,7 @@ Running ``my_script`` via ``qsub``
 
 from __future__ import print_function
 
+import collections
 import copy
 import os
 import itertools
@@ -128,7 +129,7 @@ def set_dotted(d, k, v):
     p[parts[-1]] = v
 
 
-def gen_parameters(src, runspec, debug=False):
+def get_axes(src, debug=False):
     axes = {}
     for name, code in sorted(src['axes'].items(), key=lambda x: x[0]):
         try:
@@ -138,26 +139,118 @@ def gen_parameters(src, runspec, debug=False):
                 raise
             import pdb
             pdb.post_mortem()
+    return axes
 
-    try:
-        preprocess = runspec['preprocess']
-    except KeyError:
-        def preprocess(param):
-            return param
 
+def prepare_gen(src, runspec, debug=False):
+    axes = get_axes(src, debug)
+    preprocess = runspec.get('preprocess', lambda x: x)
     keys = sorted(axes)
-    parameters = itertools.product(*[axes[name] for name in keys])
-    for i, vals in enumerate(parameters):
-        param = copy.deepcopy(src['base'])
+    return axes, preprocess, keys
+
+
+def unprocessed_parameters(base, keys, parameters):
+    for vals in parameters:
+        param = copy.deepcopy(base)
         for k, v in zip(keys, vals):
             set_dotted(param, k, v)
-        param = preprocess(param)
-        if param is not None:
-            yield param
+        yield param
+
+
+def gen_parameters(src, runspec, debug=False):
+    axes, preprocess, keys = prepare_gen(src, runspec, debug)
+    parameters = itertools.product(*[axes[name] for name in keys])
+    unprocessed = unprocessed_parameters(src['base'], keys, parameters)
+    return filter(None, map(preprocess, unprocessed))
 
 
 def param_path(src, basedir, i):
     return os.path.join(basedir, src['format'].format(**locals()))
+
+
+def is_unstarted(filepath):
+    dirpath = os.path.dirname(filepath)
+    return set(os.listdir(dirpath)) == {'.lock', os.path.basename(filepath)}
+
+
+def two_step_generator(src, runspec, debug, num_head=2):
+    axes, preprocess, keys = prepare_gen(src, runspec, debug)
+    focused_keys = keys[:num_head]
+    rest_keys = keys[num_head:]
+
+    unprocessed0 = unprocessed_parameters(
+        src['base'], focused_keys,
+        itertools.product(*[axes[name] for name in focused_keys]))
+    focused_ids = itertools.product(*[range(len(axes[name]))
+                                      for name in focused_keys])
+    focused_axes = {name: axes[name] for name in focused_keys}
+
+    def outer_iterator():
+        from argparse import Namespace
+        ns = Namespace()
+        ns.i = 0
+        for focus, param0 in zip(focused_ids, unprocessed0):
+            def iterator():
+                ps = itertools.product(*[axes[name] for name in rest_keys])
+                for param in unprocessed_parameters(param0, rest_keys, ps):
+                    param = preprocess(param)
+                    if param is not None:
+                        yield ns.i, param
+                        ns.i += 1
+            yield focus, iterator()
+
+    return focused_keys, focused_axes, outer_iterator()
+
+
+def analyze_progress(src, runspec, debug, source_file):
+    basedir = os.path.dirname(source_file)
+    is_finished = runspec['is_finished']
+
+    focused_keys, focused_axes, outer_iterator = \
+        two_step_generator(src, runspec, debug)
+
+    progress = {}
+    for focus, iterator in outer_iterator:
+        count = collections.Counter()
+        for i, param in iterator:
+            filepath = param_path(src, basedir, i)
+            if is_unstarted(filepath):
+                count['unstarted'] += 1
+            elif is_finished(
+                    param=param,
+                    dirpath=os.path.dirname(filepath),
+                    filename=os.path.basename(filepath),
+                    filepath=filepath,
+                    source=src,
+                    ):
+                count['finished'] += 1
+            else:
+                count['running'] += 1
+        progress[focus] = count
+
+    return focused_keys, focused_axes, progress
+
+
+def progress_to_table(focused_keys, focused_axes, progress):
+    xk, yk = focused_keys
+    table = [[''] + list(map(str, range(len(focused_axes[xk]))))]
+    for j in range(len(focused_axes[yk])):
+        row = [str(j)]
+        for i in range(len(focused_axes[xk])):
+            try:
+                count = progress[i, j]
+                assert len(count) > 0
+            except (KeyError, AssertionError):
+                row.append('-')
+                continue
+
+            ratio = count.get('finished', 0) / sum(count.values())
+            if ratio == 1:
+                row.append('OK')
+            else:
+                row.append(str(int(ratio * 100)))
+        table.append(row)
+    return table
 
 
 def load_run(run_file):
@@ -210,6 +303,14 @@ def indices_to_range(indices):
             ranges.append('{}-{}'.format(beg, prev))
 
     return ','.join(ranges)
+
+
+def print_table(table, sep='\t', **print_kwargs):
+    table = [list(map(str, row)) for row in table]
+    widths = list(map(max, zip(*(map(len, row) for row in table))))
+    for row in table:
+        print(*[s.ljust(w) for s, w in zip(row, widths)], sep=sep,
+              **print_kwargs)
 
 
 SOURCE_FILE_CANDIDATES = ['source.yaml', 'source.json']
@@ -412,8 +513,7 @@ def find_unfinished(source_file, run_file):
     basedir = os.path.dirname(source_file)
     for i, param in enumerate(gen_parameters(src, runspec)):
         filepath = param_path(src, basedir, i)
-        dirpath = os.path.dirname(filepath)
-        if set(os.listdir(dirpath)) == {'.lock', os.path.basename(filepath)}:
+        if is_unstarted(filepath):
             yield filepath
 
 
@@ -440,6 +540,40 @@ def cli_list_unfinished(source_file, run_file):
     """
     for filepath in find_unfinished(source_file, run_file):
         print(os.path.dirname(filepath))
+
+
+def cli_progress(source_file, run_file, debug):
+    """
+    [EXPERIMENTAL] Show %finish of two outer-most axes.
+
+    Note that this command works only for run with two or more source
+    axes at the moment.
+
+    """
+    import numpy
+
+    source_file = find_source_file(source_file)
+    run_file = find_run_file(run_file)
+    src = load_any(source_file)
+    runspec = load_run(run_file)
+    focused_keys, focused_axes, progress = \
+        analyze_progress(src, runspec, debug, source_file)
+
+    table = progress_to_table(focused_keys, focused_axes, progress)
+    xk, yk = focused_keys
+    if len(focused_axes[xk]) > len(focused_axes[yk]):
+        xk, yk = yk, xk
+        table = list(zip(*table))
+
+    print('%finish of two outer-most axes:', *focused_keys)
+    print()
+    print_table(table)
+
+    print()
+    print('X-axis:', xk)
+    print(numpy.array(focused_axes[xk]))
+    print('Y-axis:', yk)
+    print(numpy.array(focused_axes[yk]))
 
 
 def cli_len(source_file, run_file):
@@ -523,6 +657,11 @@ def make_parser(doc=__doc__):
     add_argument_run_file(p)
 
     p = subp('list-unfinished', cli_list_unfinished)
+    add_argument_source_file(p)
+    add_argument_run_file(p)
+
+    p = subp('progress', cli_progress)
+    p.add_argument('--debug', action='store_true')
     add_argument_source_file(p)
     add_argument_run_file(p)
 

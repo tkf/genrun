@@ -1,6 +1,9 @@
+import io
+
 import pytest
 
-from genrun import dump_any, cli_gen, cli_run, cli_unlock, gen_parameters
+from genrun import dump_any, cli_gen, cli_run, cli_unlock, gen_parameters, \
+    cli_progress, print_table
 
 
 def test_gen_parameters_preprocess():
@@ -37,6 +40,11 @@ open(os.path.join(dirpath, "argv"), "w").write("\n".join(sys.argv))
 open(os.path.join(dirpath, "cwd"), "w").write(os.getcwd())
 ''',
     }
+
+
+def is_finished(dirpath, **_):
+    import os
+    return os.path.exists(os.path.join(dirpath, 'finished'))
 """
 
 RUNPY["noinput"] = """
@@ -123,3 +131,38 @@ def test_unlock(tmpdir):
     cli_unlock(source_file, run_file)
     assert tmpdir.join("0", ".lock").check()
     assert not tmpdir.join("1", ".lock").check()
+
+
+@pytest.mark.parametrize('lockall', [False, True])
+def test_progress(tmpdir, capsys, lockall):
+    source_file = make_source(tmpdir, axes={
+        'alpha': 'range(3)',
+        'beta': 'range(2)',
+        'gamma': 'range(2)',
+    })
+    run_file = make_runpy(tmpdir)
+    cli_gen(source_file, run_file)
+    assert all(tmpdir.join(str(d), 'run.json').check() for d in range(12))
+    for d in range(7):
+        tmpdir.ensure(str(d), ".lock")
+        tmpdir.ensure(str(d), "finished")
+    if lockall:
+        for d in range(12):
+            tmpdir.ensure(str(d), ".lock")
+
+    out0, err0 = capsys.readouterr()
+    assert out0 == err0 == ''
+
+    stream = io.StringIO()
+    print_table([
+        ['', '0', '1'],
+        ['0', 'OK', 'OK'],
+        ['1', 'OK', '50'],
+        ['2', '0', '0'],
+    ], file=stream)
+    table = stream.getvalue()
+
+    cli_progress(source_file, run_file, False)
+    out, err = capsys.readouterr()
+    assert table in out
+    assert err == ''
