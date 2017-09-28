@@ -132,6 +132,9 @@ def set_dotted(d, k, v):
 def get_axes(src, debug=False):
     axes = {}
     for name, code in sorted(src['axes'].items(), key=lambda x: x[0]):
+        if isinstance(code, list):
+            axes[name] = code
+            continue
         try:
             axes[name] = list(src_eval(code))
         except:

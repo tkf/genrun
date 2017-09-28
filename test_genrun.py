@@ -1,9 +1,21 @@
 import io
 
+import numpy
 import pytest
 
 from genrun import dump_any, cli_gen, cli_run, cli_unlock, gen_parameters, \
-    cli_progress, print_table
+    cli_progress, print_table, get_axes
+
+
+@pytest.mark.parametrize('src_axes, axes', [
+    (dict(alpha='[0, 1]'), dict(alpha=[0, 1])),
+    (dict(alpha='arange(2)'), dict(alpha=[0, 1])),
+    (dict(alpha=[0, 1]), dict(alpha=[0, 1])),
+])
+def test_get_axes(src_axes, axes):
+    actual = get_axes(dict(axes=src_axes))
+    numpy.testing.assert_equal(actual, axes)
+    assert actual == axes
 
 
 def test_gen_parameters_preprocess():
