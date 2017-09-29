@@ -23,7 +23,7 @@ where `./source.yaml` is
        spam.gamma: 'logspace(0, 3, base=2, num=10)'
    format: '{i}/run.json'
 
-does what conceptually equivalently to the following code
+does what the following code conceptually does
 
 .. code:: python
 
