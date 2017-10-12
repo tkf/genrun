@@ -4,18 +4,46 @@ import numpy
 import pytest
 
 from genrun import dump_any, cli_gen, cli_run, cli_unlock, gen_parameters, \
-    cli_progress, print_table, get_axes
+    cli_progress, print_table, iter_axes, get_axes
+
+
+@pytest.mark.parametrize('src_axes, names', [
+    (dict(alpha=[]), ['alpha']),
+    (dict(alpha=[], beta=[]), ['alpha', 'beta']),
+    ([dict(beta=[]), dict(alpha=[])], ['beta', 'alpha']),
+])
+def test_iter_axes(src_axes, names):
+    actual, _ = zip(*iter_axes(src_axes))
+    numpy.testing.assert_equal(actual, names)
 
 
 @pytest.mark.parametrize('src_axes, axes', [
     (dict(alpha='[0, 1]'), dict(alpha=[0, 1])),
     (dict(alpha='arange(2)'), dict(alpha=[0, 1])),
     (dict(alpha=[0, 1]), dict(alpha=[0, 1])),
+    ([dict(alpha=[0, 1])], dict(alpha=[0, 1])),
 ])
 def test_get_axes(src_axes, axes):
     actual = get_axes(dict(axes=src_axes))
     numpy.testing.assert_equal(actual, axes)
     assert actual == axes
+
+
+@pytest.mark.parametrize('src_axes, parameters', [
+    (dict(alpha=[0, 1]), [dict(alpha=0), dict(alpha=1)]),
+    (dict(alpha=[0, 1], beta=[10, 11]), [
+        dict(alpha=0, beta=10), dict(alpha=0, beta=11),
+        dict(alpha=1, beta=10), dict(alpha=1, beta=11),
+    ]),
+    ([dict(beta=[10, 11]), dict(alpha=[0, 1])], [
+        dict(alpha=0, beta=10), dict(alpha=1, beta=10),
+        dict(alpha=0, beta=11), dict(alpha=1, beta=11),
+    ]),
+])
+def test_gen_parameters(src_axes, parameters):
+    src = dict(base={}, axes=src_axes)
+    actual = list(gen_parameters(src, {}))
+    numpy.testing.assert_equal(actual, parameters)
 
 
 def test_gen_parameters_preprocess():

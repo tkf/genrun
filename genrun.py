@@ -129,9 +129,44 @@ def set_dotted(d, k, v):
     p[parts[-1]] = v
 
 
+def has_common_keys(dicts):
+    if not dicts:
+        return False
+    for d in dicts[1:]:
+        if set(dicts[0]) & set(d):
+            return True
+    return has_common_keys(dicts[1:])
+
+
+def iter_axes_list(src_axes):
+    if not all(isinstance(sub, dict) for sub in src_axes):
+        raise GenRunExit(
+            "list type 'axes' in source file must contain only dicts;"
+            " got: {}"
+            .format(list(map(type, src_axes))))
+    if has_common_keys(src_axes):
+        raise GenRunExit(
+            "list type 'axes' in source file must not contain dicts"
+            " with common keys")
+    for sub in src_axes:
+        for kv in iter_axes(sub):
+            yield kv
+
+
+def iter_axes(src_axes):
+    if not src_axes:
+        raise GenRunExit("Empty 'axes' in source file.")
+    if isinstance(src_axes, dict):
+        return sorted(src_axes.items(), key=lambda x: x[0])
+    if isinstance(src_axes, list):
+        return iter_axes_list(src_axes)
+    raise GenRunExit("'axes' in source file cannot be of type {}"
+                     .format(type(src_axes)))
+
+
 def get_axes(src, debug=False):
-    axes = {}
-    for name, code in sorted(src['axes'].items(), key=lambda x: x[0]):
+    axes = collections.OrderedDict()
+    for name, code in iter_axes(src['axes']):
         if isinstance(code, list):
             axes[name] = code
             continue
@@ -148,7 +183,7 @@ def get_axes(src, debug=False):
 def prepare_gen(src, runspec, debug=False):
     axes = get_axes(src, debug)
     preprocess = runspec.get('preprocess', lambda x: x)
-    keys = sorted(axes)
+    keys = list(axes.keys())
     return axes, preprocess, keys
 
 
