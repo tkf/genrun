@@ -67,9 +67,10 @@ from __future__ import print_function
 
 import collections
 import copy
-import os
+import functools
 import itertools
 import logging
+import os
 import subprocess
 
 __version__ = '0.0.0'
@@ -82,6 +83,15 @@ logger = logging.getLogger("genrun")
 
 class GenRunExit(RuntimeError):
     """ Error to be raised on known erroneous situations. """
+
+
+def coroutine_send(func):
+    @functools.wraps(func)
+    def start(*args, **kwds):
+        cr = func(*args, **kwds)
+        next(cr)
+        return cr.send
+    return start
 
 
 class JsonModule(object):
@@ -406,6 +416,22 @@ def cli_gen(source_file, run_file, debug=False):
         dump_any(filepath, param)
 
 
+@coroutine_send
+def oneline_reporter(header):
+    message = yield
+    if message is None:
+        yield
+        return
+    print(header, end=' ')
+    while True:
+        print(message, end=' ', flush=True)
+        message = yield
+        if message is None:
+            break
+    print()
+    yield
+
+
 def run_loop(source_file, run_file, param_files):
     """
     Run generated parameter files.
@@ -420,12 +446,13 @@ def run_loop(source_file, run_file, param_files):
         nparam = sum(1 for _ in gen_parameters(src, runspec))  # FIXME:optimize
         param_files = [param_path(src, basedir, i) for i in range(nparam)]
 
+    report_skip = oneline_reporter('Skipping locked directories:')
     for path in param_files:
         path = os.path.abspath(path)
 
         lock_file = os.path.join(os.path.dirname(path), '.lock')
         if os.path.exists(lock_file):
-            print(lock_file, 'exists. skipping...')
+            report_skip(os.path.dirname(lock_file))
             continue
         open(lock_file, 'w').close()
 
@@ -452,6 +479,7 @@ def run_loop(source_file, run_file, param_files):
         if proc.returncode != 0:
             os.remove(lock_file)
             raise RuntimeError("{} failed".format(command))
+    report_skip(None)
 
 
 def run_array(source_file, run_file, param_files):
@@ -471,17 +499,19 @@ def run_array(source_file, run_file, param_files):
     ids = []
     lock_file_list = []
     remaining = set(param_files)
+    report_skip = oneline_reporter('Skipping locked directories:')
     for i, _ in enumerate(gen_parameters(src, runspec)):
         path = param_path(src, basedir, i)
         if path in remaining:
             remaining.remove(path)
             lock_file = os.path.join(os.path.dirname(path), '.lock')
             if os.path.exists(lock_file):
-                print(lock_file, 'exists. skipping...')
+                report_skip(os.path.dirname(lock_file))
                 continue
             ids.append(i)
             lock_file_list.append(lock_file)
             open(lock_file, 'w').close()
+    report_skip(None)
     assert not remaining
 
     cmdspec = runspec['run_array'](
@@ -568,10 +598,12 @@ def cli_unlock(source_file, run_file):
     dry-run), use list-unfinished command.
 
     """
+    report_remove = oneline_reporter('Removing:')
     for filepath in find_unfinished(source_file, run_file):
         lockfile = os.path.join(os.path.dirname(filepath), '.lock')
-        print('Remove', lockfile)
+        report_remove(lockfile)
         os.remove(lockfile)
+    report_remove(None)
 
 
 def cli_list_unfinished(source_file, run_file):
