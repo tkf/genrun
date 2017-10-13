@@ -69,11 +69,15 @@ import collections
 import copy
 import os
 import itertools
+import logging
 import subprocess
 
 __version__ = '0.0.0'
 __author__ = 'Takafumi Arakaki'
 __license__ = None
+
+
+logger = logging.getLogger("genrun")
 
 
 class GenRunExit(RuntimeError):
@@ -364,7 +368,7 @@ def find_source_file(source_file):
                              ' following files are present in the current'
                              ' directory: {}'
                              .format(', '.join(SOURCE_FILE_CANDIDATES)))
-        print('Using:', source_file)
+        logger.info('Using: %s', source_file)
     return source_file
 
 
@@ -382,7 +386,7 @@ def find_run_file(run_file):
             raise GenRunExit('run_file is not given and run.py is'
                              ' not found in here or any of the parent'
                              ' directories.')
-        print('Using:', run_file)
+        logger.info('Using: %s', run_file)
     return run_file
 
 
@@ -729,6 +733,10 @@ def make_parser(doc=__doc__):
 def main(args=None):
     parser = make_parser()
     ns = parser.parse_args(args)
+
+    logger.setLevel(logging.INFO)
+    logging.basicConfig(format='%(message)s')
+
     if not hasattr(ns, 'func'):
         parser.print_usage()
         parser.exit(2)
