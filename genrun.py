@@ -626,6 +626,16 @@ def cli_len(source_file, run_file):
     print(nparam)
 
 
+def cli_axes_keys(source_file, delimiter, end, debug):
+    """
+    Print axes keys in the order defined in `source_file`.
+    """
+    source_file = find_source_file(source_file)
+    src = load_any(source_file)
+    axes = get_axes(src, debug=debug)
+    print(*axes.keys(), sep=delimiter, end=end)
+
+
 def make_parser(doc=__doc__):
     import argparse
 
@@ -706,6 +716,12 @@ def make_parser(doc=__doc__):
     p = subp('len', cli_len)
     add_argument_source_file(p)
     add_argument_run_file(p)
+
+    p = subp('axes-keys', cli_axes_keys)
+    add_argument_source_file(p)
+    p.add_argument('--debug', action='store_true')
+    p.add_argument('--delimiter', default='\n')
+    p.add_argument('--end', default='\n')
 
     return parser
 
