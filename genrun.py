@@ -681,9 +681,9 @@ def make_parser(doc=__doc__):
     subparsers = parser.add_subparsers()
 
     def subp(command, func):
-        doc = func.__doc__
+        doc = (func.__doc__ or '').replace('%', '%%')
         title = None
-        for title in filter(None, map(str.strip, (doc or '').splitlines())):
+        for title in filter(None, map(str.strip, doc.splitlines())):
             break
         p = subparsers.add_parser(
             command,

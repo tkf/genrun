@@ -4,7 +4,7 @@ import numpy
 import pytest
 
 from genrun import dump_any, cli_gen, cli_run, cli_unlock, gen_parameters, \
-    cli_progress, print_table, iter_axes, get_axes
+    cli_progress, print_table, iter_axes, get_axes, make_parser
 
 
 @pytest.mark.parametrize('src_axes, names', [
@@ -206,3 +206,18 @@ def test_progress(tmpdir, capsys, lockall):
     out, err = capsys.readouterr()
     assert table in out
     assert err == ''
+
+
+def get_subcommands():
+    parser = make_parser()
+    action = parser._subparsers._group_actions[0]
+    return action.choices.keys()
+
+
+@pytest.mark.parametrize('sub_command', [None] + list(get_subcommands()))
+def test_argparse_help(sub_command):
+    parser = make_parser()
+    args = ['--help'] if sub_command is None else [sub_command, '--help']
+    with pytest.raises(SystemExit) as errinfo:
+        parser.parse_args(args)
+    assert errinfo.value.code == 0
