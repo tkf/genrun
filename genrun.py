@@ -72,6 +72,7 @@ import itertools
 import logging
 import os
 import subprocess
+import sys
 
 __version__ = '0.0.0'
 __author__ = 'Takafumi Arakaki'
@@ -104,6 +105,21 @@ class JsonModule(object):
         self.json.dump(obj, file, sort_keys=True)
 
 
+class NDJsonModule(object):
+
+    def __init__(self, json):
+        self.json = json
+
+    def load(self, file):
+        raise NotImplementedError
+
+    def dump(self, obj, file):
+        json = self.json
+        for d in obj:
+            json.dump(d, file)
+            file.write('\n')
+
+
 def param_module(path):
     if path.lower().endswith((".yaml", ".yml")):
         import yaml
@@ -111,6 +127,9 @@ def param_module(path):
     elif path.lower().endswith(".json"):
         import json
         return JsonModule(json)
+    elif path.lower().endswith(".ndjson"):
+        import json
+        return NDJsonModule(json)
     else:
         raise ValueError('data format of {!r} is not supported'.format(path))
 
@@ -124,10 +143,19 @@ def load_any(path):
         return loader(f)
 
 
-def dump_any(path, obj):
-    dumper = param_module(path).dump
-    with open(path, 'w') as f:
-        dumper(obj, f)
+def dump_any(dest, obj, filetype=None):
+    if filetype is None:
+        filetype = dest
+    else:
+        # Prepend '.' since param_module dispatches extension...
+        filetype = '.' + filetype  # TODO: refactoring
+
+    dumper = param_module(filetype).dump
+    if hasattr(dest, 'write'):
+        dumper(obj, dest)
+    else:
+        with open(dest, 'w') as f:
+            dumper(obj, f)
 
 
 def src_eval(code):
@@ -672,6 +700,31 @@ def cli_axes_keys(source_file, delimiter, end, debug):
     print(*axes.keys(), sep=delimiter, end=end)
 
 
+def load_source(source_file, debug, deaxes):
+    source_file = find_source_file(source_file)
+    src = load_any(source_file)
+    if deaxes:
+        axes = get_axes(src, debug=debug)
+        return dict(src['base'], **axes)
+    else:
+        return src
+
+
+def cli_cat(source_files, output_type, debug, deaxes, output,
+            path_key):
+    """
+    Load `source_files`, concatenate them.
+    """
+    sources = [load_source(f, debug, deaxes) for f in source_files]
+    if path_key:
+        sources = [dict(d, **{path_key: f}) for d, f
+                   in zip(sources, source_files)]
+
+    dump_any(sys.stdout if output == '-' else output,
+             sources,
+             output_type)
+
+
 def make_parser(doc=__doc__):
     import argparse
 
@@ -758,6 +811,24 @@ def make_parser(doc=__doc__):
     p.add_argument('--debug', action='store_true')
     p.add_argument('--delimiter', default='\n')
     p.add_argument('--end', default='\n')
+
+    p = subp('cat', cli_cat)
+    p.add_argument(
+        'source_files', metavar='source_file', nargs='+',
+        help='Path to parameter configuration files.')
+    p.add_argument('--debug', action='store_true')
+    p.add_argument(
+        '--output-type', default='ndjson',
+        choices=('ndjson', 'json', 'yaml'))
+    p.add_argument(
+        '--output', default='-',
+        help='Path to which output is written. "-" means stdout.')
+    p.add_argument(
+        '--deaxes', action='store_true',
+        help='Mix "axes" and "base" in `source_file`.')
+    p.add_argument(
+        '--path-key',
+        help='Include `source_file` with this key in each record.')
 
     return parser
 
