@@ -518,9 +518,9 @@ def run_array(source_file, run_file, param_files):
     run_file = find_run_file(run_file)
     src = load_any(source_file)
     runspec = load_run(run_file)
+    basedir = os.path.dirname(source_file)
 
     if not param_files:
-        basedir = os.path.dirname(source_file)
         nparam = sum(1 for _ in gen_parameters(src, runspec))  # FIXME:optimize
         param_files = [param_path(src, basedir, i) for i in range(nparam)]
 
