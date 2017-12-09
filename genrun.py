@@ -336,7 +336,9 @@ def progress_to_table(focused_keys, focused_axes, progress):
 def load_run(run_file):
     with open(run_file) as f:
         code = f.read()
-    ns = {}
+    ns = dict(
+        __file__=run_file,
+    )
     exec(code, ns)
     return ns
 
