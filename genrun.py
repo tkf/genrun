@@ -160,7 +160,7 @@ def dump_any(dest, obj, filetype=None):
 
 def src_eval(code):
     import numpy
-    return eval(code, None, vars(numpy))
+    return eval(code, vars(numpy))
 
 
 def set_dotted(d, k, v):
