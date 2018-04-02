@@ -707,7 +707,10 @@ def load_source(source_file, debug, deaxes):
     src = load_any(source_file)
     if deaxes:
         axes = get_axes(src, debug=debug)
-        return dict(src['base'], **axes)
+        base = copy.deepcopy(src['base'])
+        for k, v in axes.items():
+            set_dotted(base, k, v)
+        return base
     else:
         return src
 
