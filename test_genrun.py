@@ -1,10 +1,34 @@
 import io
+import textwrap
 
 import numpy
 import pytest
 
-from genrun import dump_any, cli_gen, cli_run, cli_unlock, gen_parameters, \
-    cli_progress, print_table, iter_axes, get_axes, make_parser
+from genrun import (
+    load_any,
+    dump_any,
+    cli_gen,
+    cli_run,
+    cli_unlock,
+    gen_parameters,
+    cli_progress,
+    print_table,
+    iter_axes,
+    get_axes,
+    make_parser,
+)
+
+
+def test_load_yaml(tmpdir):
+    yaml_path = tmpdir.join("file.yaml")
+    yaml_code = """
+    a:
+    - b
+    - c
+    """
+    yaml_path.write(textwrap.dedent(yaml_code))
+    data = load_any(str(yaml_path))
+    assert data == {"a": ["b", "c"]}
 
 
 @pytest.mark.parametrize('src_axes, names', [

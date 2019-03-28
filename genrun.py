@@ -95,6 +95,16 @@ def coroutine_send(func):
     return start
 
 
+class YamlModule(object):
+    def __init__(self, yaml):
+        try:
+            self.load = yaml.safe_load
+        except AttributeError:
+            self.load = yaml.load
+
+        self.dump = yaml.dump
+
+
 class JsonModule(object):
 
     def __init__(self, json):
@@ -123,7 +133,7 @@ class NDJsonModule(object):
 def param_module(path):
     if path.lower().endswith((".yaml", ".yml")):
         import yaml
-        return yaml
+        return YamlModule(yaml)
     elif path.lower().endswith(".json"):
         import json
         return JsonModule(json)
