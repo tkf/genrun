@@ -73,7 +73,7 @@ import logging
 import os
 import subprocess
 import sys
-from typing import Callable
+from typing import Any, Callable, Dict, Iterable, List, TypeVar
 
 __version__ = "0.0.0"
 __author__ = "Takafumi Arakaki"
@@ -82,12 +82,19 @@ __license__ = None
 
 logger = logging.getLogger("genrun")
 
+T = TypeVar("T")
+AxesDict = Dict[str, List]  # use OrderedDict?
+
 
 class GenRunExit(RuntimeError):
     """ Error to be raised on known erroneous situations. """
 
 
-def coroutine_send(func):
+def coroutine_send(func: Callable[..., Iterable[T]]) -> Callable[..., Callable[..., T]]:
+    # Is it possible to denote that the function given to
+    # `coroutine_send` and the function returned from it take the same
+    # set of arguments?
+
     @functools.wraps(func)
     def start(*args, **kwds):
         cr = func(*args, **kwds)
@@ -177,7 +184,7 @@ def src_eval(code):
     return eval(code, vars(numpy))
 
 
-def set_dotted(d, k, v):
+def set_dotted(d: Dict[str, Any], k: str, v):
     parts = k.split(".")
     p = d
     for i in parts[:-1]:
@@ -185,7 +192,7 @@ def set_dotted(d, k, v):
     p[parts[-1]] = v
 
 
-def has_common_keys(dicts):
+def has_common_keys(dicts: List[Dict]) -> bool:
     if not dicts:
         return False
     for d in dicts[1:]:
@@ -221,8 +228,8 @@ def iter_axes(src_axes):
     )
 
 
-def get_axes(src, debug=False):
-    axes = collections.OrderedDict()
+def get_axes(src: Dict[str, Any], debug=False) -> AxesDict:
+    axes: AxesDict = collections.OrderedDict()
     for name, code in iter_axes(src["axes"]):
         if isinstance(code, list):
             axes[name] = code
@@ -245,7 +252,9 @@ def prepare_gen(src, runspec, debug=False):
     return axes, preprocess, keys
 
 
-def unprocessed_parameters(base, keys, parameters):
+def unprocessed_parameters(
+    base: Dict[str, Any], keys: Iterable[str], parameters: Iterable[Dict[str, Any]]
+) -> Iterable[Dict[str, Any]]:
     for vals in parameters:
         param = copy.deepcopy(base)
         for k, v in zip(keys, vals):
