@@ -248,7 +248,7 @@ def iter_axes(src_axes: Union[Dict[str, Any], List[Dict[str, Any]]]) -> IterAxes
 
 
 def get_axes(src: Dict[str, Any], debug: bool = False) -> AxesDict:
-    axes: AxesDict = collections.OrderedDict()
+    axes = collections.OrderedDict()  # type: AxesDict
     for name, code in iter_axes(src["axes"]):
         if isinstance(code, list):
             axes[name] = code
@@ -340,7 +340,7 @@ def analyze_progress(src, runspec, debug: bool, source_file):
 
     progress = {}
     for focus, iterator in outer_iterator:
-        count: Dict[str, int] = collections.Counter()
+        count = collections.Counter()  # type: Dict[str, int]
         for i, param in iterator:
             filepath = param_path(src, basedir, i)
             if is_unstarted(filepath):
