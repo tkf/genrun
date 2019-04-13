@@ -264,7 +264,7 @@ def get_axes(src: Dict[str, Any], debug: bool = False) -> AxesDict:
     return axes
 
 
-def prepare_gen(src, runspec, debug: bool = False):
+def prepare_gen(src: Dict[str, Any], runspec: Dict[str, Any], debug: bool = False):
     axes = get_axes(src, debug)
     preprocess = runspec.get("preprocess", lambda x: x)
     keys = list(axes.keys())
@@ -281,18 +281,20 @@ def unprocessed_parameters(
         yield param
 
 
-def gen_parameters(src, runspec, debug: bool = False):
+def gen_parameters(
+    src: Dict[str, Any], runspec: Dict[str, Any], debug: bool = False
+) -> Iterable[Dict[str, Any]]:
     axes, preprocess, keys = prepare_gen(src, runspec, debug)
     parameters = itertools.product(*[axes[name] for name in keys])
     unprocessed = unprocessed_parameters(src["base"], keys, parameters)
     return filter(None, map(preprocess, unprocessed))
 
 
-def param_path(src, basedir, i):
+def param_path(src: Dict[str, Any], basedir: str, i: int) -> str:
     return os.path.join(basedir, src["format"].format(**locals()))
 
 
-def is_unstarted(filepath):
+def is_unstarted(filepath: str) -> bool:
     dirpath = os.path.dirname(filepath)
     return set(os.listdir(dirpath)) == {".lock", os.path.basename(filepath)}
 
