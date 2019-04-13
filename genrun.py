@@ -73,7 +73,7 @@ import logging
 import os
 import subprocess
 import sys
-from typing import Any, Callable, Dict, Iterable, List, TypeVar
+from typing import IO, Any, Callable, Dict, Iterable, List, Optional, TypeVar, Union
 
 __version__ = "0.0.0"
 __author__ = "Takafumi Arakaki"
@@ -137,7 +137,7 @@ class NDJsonModule(object):
             file.write("\n")
 
 
-def param_module(path):
+def param_module(path: str):
     if path.lower().endswith((".yaml", ".yml")):
         import yaml
 
@@ -154,7 +154,7 @@ def param_module(path):
         raise ValueError("data format of {!r} is not supported".format(path))
 
 
-def load_any(path):
+def load_any(path: str) -> Dict:
     """
     Load data from given path; data format is determined by file extension
     """
@@ -163,7 +163,7 @@ def load_any(path):
         return loader(f)
 
 
-def dump_any(dest, obj, filetype=None):
+def dump_any(dest: Union[str, IO], obj, filetype: Optional[str] = None):
     if filetype is None:
         filetype = dest
     else:
@@ -228,7 +228,7 @@ def iter_axes(src_axes):
     )
 
 
-def get_axes(src: Dict[str, Any], debug=False) -> AxesDict:
+def get_axes(src: Dict[str, Any], debug: bool = False) -> AxesDict:
     axes: AxesDict = collections.OrderedDict()
     for name, code in iter_axes(src["axes"]):
         if isinstance(code, list):
@@ -245,7 +245,7 @@ def get_axes(src: Dict[str, Any], debug=False) -> AxesDict:
     return axes
 
 
-def prepare_gen(src, runspec, debug=False):
+def prepare_gen(src, runspec, debug: bool = False):
     axes = get_axes(src, debug)
     preprocess = runspec.get("preprocess", lambda x: x)
     keys = list(axes.keys())
@@ -262,7 +262,7 @@ def unprocessed_parameters(
         yield param
 
 
-def gen_parameters(src, runspec, debug=False):
+def gen_parameters(src, runspec, debug: bool = False):
     axes, preprocess, keys = prepare_gen(src, runspec, debug)
     parameters = itertools.product(*[axes[name] for name in keys])
     unprocessed = unprocessed_parameters(src["base"], keys, parameters)
@@ -278,7 +278,7 @@ def is_unstarted(filepath):
     return set(os.listdir(dirpath)) == {".lock", os.path.basename(filepath)}
 
 
-def two_step_generator(src, runspec, debug, num_head=2):
+def two_step_generator(src, runspec, debug: bool, num_head=2):
     axes, preprocess, keys = prepare_gen(src, runspec, debug)
     focused_keys = keys[:num_head]
     rest_keys = keys[num_head:]
@@ -311,7 +311,7 @@ def two_step_generator(src, runspec, debug, num_head=2):
     return focused_keys, focused_axes, outer_iterator()
 
 
-def analyze_progress(src, runspec, debug, source_file):
+def analyze_progress(src, runspec, debug: bool, source_file):
     basedir = os.path.dirname(source_file)
     is_finished = runspec["is_finished"]
 
@@ -319,7 +319,7 @@ def analyze_progress(src, runspec, debug, source_file):
 
     progress = {}
     for focus, iterator in outer_iterator:
-        count = collections.Counter()
+        count: Dict[str, int] = collections.Counter()
         for i, param in iterator:
             filepath = param_path(src, basedir, i)
             if is_unstarted(filepath):
@@ -490,7 +490,7 @@ def oneline_reporter(header):
     yield
 
 
-def run_loop(source_file, run_file, param_files):
+def run_loop(source_file: str, run_file: str, param_files: Optional[List[str]]):
     """
     Run generated parameter files.
     """
@@ -537,7 +537,7 @@ def run_loop(source_file, run_file, param_files):
     report_skip(None)
 
 
-def run_array(source_file, run_file, param_files):
+def run_array(source_file: str, run_file: str, param_files: Optional[List[str]]):
     """
     Run generated parameter files.
     """
@@ -596,7 +596,7 @@ def run_array(source_file, run_file, param_files):
         raise GenRunExit("{} failed".format(command))
 
 
-def cli_all(source_file, run_file, run_type):
+def cli_all(source_file: str, run_file: str, run_type):
     """
     Generate parameter files and then run them.
     """
@@ -606,7 +606,9 @@ def cli_all(source_file, run_file, run_type):
     cli_run(source_file, run_file, param_files=None, run_type=run_type)
 
 
-def cli_run(source_file, run_file, param_files, run_type):
+def cli_run(
+    source_file: str, run_file: str, param_files: Optional[List[str]], run_type
+):
     """
     Run generated parameter files.
     """
@@ -628,7 +630,7 @@ def cli_run(source_file, run_file, param_files, run_type):
         run_loop(source_file, run_file, param_files)
 
 
-def find_unfinished(source_file, run_file):
+def find_unfinished(source_file: str, run_file):
     """
     Return an iterator yielding unfinished parameter files.
     """
@@ -643,7 +645,7 @@ def find_unfinished(source_file, run_file):
             yield filepath
 
 
-def cli_unlock(source_file, run_file):
+def cli_unlock(source_file: str, run_file):
     """
     Remove .lock files from unfinished run directories.
 
@@ -660,7 +662,7 @@ def cli_unlock(source_file, run_file):
     report_remove(None)
 
 
-def cli_list_unfinished(source_file, run_file):
+def cli_list_unfinished(source_file: str, run_file):
     """
     List unfinished run directories.
 
@@ -670,7 +672,7 @@ def cli_list_unfinished(source_file, run_file):
         print(os.path.dirname(filepath))
 
 
-def cli_progress(source_file, run_file, debug):
+def cli_progress(source_file: str, run_file: str, debug: bool):
     """
     [EXPERIMENTAL] Show %finish of two outer-most axes.
 
@@ -705,7 +707,7 @@ def cli_progress(source_file, run_file, debug):
     print(numpy.array(focused_axes[yk]))
 
 
-def cli_len(source_file, run_file):
+def cli_len(source_file: str, run_file):
     """
     Print number of parameter files to be generated.
     """
@@ -717,7 +719,7 @@ def cli_len(source_file, run_file):
     print(nparam)
 
 
-def cli_axes_keys(source_file, delimiter, end, debug):
+def cli_axes_keys(source_file: str, delimiter, end, debug: bool):
     """
     Print axes keys in the order defined in `source_file`.
     """
@@ -727,7 +729,7 @@ def cli_axes_keys(source_file, delimiter, end, debug):
     print(*axes.keys(), sep=delimiter, end=end)
 
 
-def load_source(source_file, debug, deaxes):
+def load_source(source_file: str, debug: bool, deaxes: bool):
     source_file = find_source_file(source_file)
     src = load_any(source_file)
     if deaxes:
@@ -740,7 +742,14 @@ def load_source(source_file, debug, deaxes):
         return src
 
 
-def cli_cat(source_files, output_type, debug, deaxes, output, path_key):
+def cli_cat(
+    source_files: Iterable[str],
+    output_type: str,
+    debug: bool,
+    deaxes: bool,
+    output: str,
+    path_key: Optional[str],
+):
     """
     Load `source_files`, concatenate them.
     """
