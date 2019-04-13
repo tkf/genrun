@@ -5,17 +5,17 @@ import numpy
 import pytest
 
 from genrun import (
-    load_any,
-    dump_any,
     cli_gen,
+    cli_progress,
     cli_run,
     cli_unlock,
+    dump_any,
     gen_parameters,
-    cli_progress,
-    print_table,
-    iter_axes,
     get_axes,
+    iter_axes,
+    load_any,
     make_parser,
+    print_table,
 )
 
 
