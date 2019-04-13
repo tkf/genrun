@@ -73,6 +73,7 @@ import logging
 import os
 import subprocess
 import sys
+from typing import Callable
 
 __version__ = "0.0.0"
 __author__ = "Takafumi Arakaki"
@@ -428,7 +429,7 @@ def find_source_file(source_file):
     return source_file
 
 
-def find_run_file(run_file):
+def find_run_file(run_file: str):
     if not run_file:
         directory = os.getcwd()
         parent = os.path.dirname(directory)
@@ -448,7 +449,7 @@ def find_run_file(run_file):
     return run_file
 
 
-def cli_gen(source_file, run_file, debug=False):
+def cli_gen(source_file: str, run_file: str, debug: bool = False):
     """
     Generate parameter files based on `source_file`.
     """
@@ -741,7 +742,7 @@ def cli_cat(source_files, output_type, debug, deaxes, output, path_key):
     dump_any(sys.stdout if output == "-" else output, sources, output_type)
 
 
-def make_parser(doc=__doc__):
+def make_parser(doc: str = __doc__):
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -749,7 +750,7 @@ def make_parser(doc=__doc__):
     )
     subparsers = parser.add_subparsers()
 
-    def subp(command, func):
+    def subp(command: str, func: Callable):
         doc = (func.__doc__ or "").replace("%", "%%")
         title = None
         for title in filter(None, map(str.strip, doc.splitlines())):
