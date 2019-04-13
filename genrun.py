@@ -165,6 +165,10 @@ def load_any(path: str) -> Dict:
 
 def dump_any(dest: Union[str, IO], obj, filetype: Optional[str] = None):
     if filetype is None:
+        if not isinstance(dest, str):
+            raise TypeError(
+                "`dump_any` requires `filetype` when using an IO as the `dest`"
+            )
         filetype = dest
     else:
         # Prepend '.' since param_module dispatches extension...
@@ -174,6 +178,7 @@ def dump_any(dest: Union[str, IO], obj, filetype: Optional[str] = None):
     if hasattr(dest, "write"):
         dumper(obj, dest)
     else:
+        assert isinstance(dest, str)
         with open(dest, "w") as f:
             dumper(obj, f)
 
