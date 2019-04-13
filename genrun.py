@@ -635,7 +635,7 @@ def cli_run(
         run_loop(source_file, run_file, param_files)
 
 
-def find_unfinished(source_file: str, run_file):
+def find_unfinished(source_file: str, run_file: str):
     """
     Return an iterator yielding unfinished parameter files.
     """
@@ -650,7 +650,7 @@ def find_unfinished(source_file: str, run_file):
             yield filepath
 
 
-def cli_unlock(source_file: str, run_file):
+def cli_unlock(source_file: str, run_file: str):
     """
     Remove .lock files from unfinished run directories.
 
@@ -667,7 +667,7 @@ def cli_unlock(source_file: str, run_file):
     report_remove(None)
 
 
-def cli_list_unfinished(source_file: str, run_file):
+def cli_list_unfinished(source_file: str, run_file: str):
     """
     List unfinished run directories.
 
@@ -712,7 +712,7 @@ def cli_progress(source_file: str, run_file: str, debug: bool):
     print(numpy.array(focused_axes[yk]))
 
 
-def cli_len(source_file: str, run_file):
+def cli_len(source_file: str, run_file: str):
     """
     Print number of parameter files to be generated.
     """
@@ -724,7 +724,7 @@ def cli_len(source_file: str, run_file):
     print(nparam)
 
 
-def cli_axes_keys(source_file: str, delimiter, end, debug: bool):
+def cli_axes_keys(source_file: str, delimiter: str, end: str, debug: bool):
     """
     Print axes keys in the order defined in `source_file`.
     """
