@@ -73,7 +73,18 @@ import logging
 import os
 import subprocess
 import sys
-from typing import IO, Any, Callable, Dict, Iterable, List, Optional, TypeVar, Union
+from typing import (
+    IO,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 __version__ = "0.0.0"
 __author__ = "Takafumi Arakaki"
@@ -206,7 +217,10 @@ def has_common_keys(dicts: List[Dict]) -> bool:
     return has_common_keys(dicts[1:])
 
 
-def iter_axes_list(src_axes):
+IterAxes = Iterable[Tuple[str, Union[str, List]]]
+
+
+def iter_axes_list(src_axes: List[Dict[str, Any]]) -> IterAxes:
     if not all(isinstance(sub, dict) for sub in src_axes):
         raise GenRunExit(
             "list type 'axes' in source file must contain only dicts;"
@@ -221,7 +235,7 @@ def iter_axes_list(src_axes):
             yield kv
 
 
-def iter_axes(src_axes):
+def iter_axes(src_axes: Union[Dict[str, Any], List[Dict[str, Any]]]) -> IterAxes:
     if not src_axes:
         raise GenRunExit("Empty 'axes' in source file.")
     if isinstance(src_axes, dict):
