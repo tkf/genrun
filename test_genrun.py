@@ -31,39 +31,58 @@ def test_load_yaml(tmpdir):
     assert data == {"a": ["b", "c"]}
 
 
-@pytest.mark.parametrize('src_axes, names', [
-    (dict(alpha=[]), ['alpha']),
-    (dict(alpha=[], beta=[]), ['alpha', 'beta']),
-    ([dict(beta=[]), dict(alpha=[])], ['beta', 'alpha']),
-])
+@pytest.mark.parametrize(
+    "src_axes, names",
+    [
+        (dict(alpha=[]), ["alpha"]),
+        (dict(alpha=[], beta=[]), ["alpha", "beta"]),
+        ([dict(beta=[]), dict(alpha=[])], ["beta", "alpha"]),
+    ],
+)
 def test_iter_axes(src_axes, names):
     actual, _ = zip(*iter_axes(src_axes))
     numpy.testing.assert_equal(actual, names)
 
 
-@pytest.mark.parametrize('src_axes, axes', [
-    (dict(alpha='[0, 1]'), dict(alpha=[0, 1])),
-    (dict(alpha='arange(2)'), dict(alpha=[0, 1])),
-    (dict(alpha=[0, 1]), dict(alpha=[0, 1])),
-    ([dict(alpha=[0, 1])], dict(alpha=[0, 1])),
-])
+@pytest.mark.parametrize(
+    "src_axes, axes",
+    [
+        (dict(alpha="[0, 1]"), dict(alpha=[0, 1])),
+        (dict(alpha="arange(2)"), dict(alpha=[0, 1])),
+        (dict(alpha=[0, 1]), dict(alpha=[0, 1])),
+        ([dict(alpha=[0, 1])], dict(alpha=[0, 1])),
+    ],
+)
 def test_get_axes(src_axes, axes):
     actual = get_axes(dict(axes=src_axes))
     numpy.testing.assert_equal(actual, axes)
     assert actual == axes
 
 
-@pytest.mark.parametrize('src_axes, parameters', [
-    (dict(alpha=[0, 1]), [dict(alpha=0), dict(alpha=1)]),
-    (dict(alpha=[0, 1], beta=[10, 11]), [
-        dict(alpha=0, beta=10), dict(alpha=0, beta=11),
-        dict(alpha=1, beta=10), dict(alpha=1, beta=11),
-    ]),
-    ([dict(beta=[10, 11]), dict(alpha=[0, 1])], [
-        dict(alpha=0, beta=10), dict(alpha=1, beta=10),
-        dict(alpha=0, beta=11), dict(alpha=1, beta=11),
-    ]),
-])
+@pytest.mark.parametrize(
+    "src_axes, parameters",
+    [
+        (dict(alpha=[0, 1]), [dict(alpha=0), dict(alpha=1)]),
+        (
+            dict(alpha=[0, 1], beta=[10, 11]),
+            [
+                dict(alpha=0, beta=10),
+                dict(alpha=0, beta=11),
+                dict(alpha=1, beta=10),
+                dict(alpha=1, beta=11),
+            ],
+        ),
+        (
+            [dict(beta=[10, 11]), dict(alpha=[0, 1])],
+            [
+                dict(alpha=0, beta=10),
+                dict(alpha=1, beta=10),
+                dict(alpha=0, beta=11),
+                dict(alpha=1, beta=11),
+            ],
+        ),
+    ],
+)
 def test_gen_parameters(src_axes, parameters):
     src = dict(base={}, axes=src_axes)
     actual = list(gen_parameters(src, {}))
@@ -72,27 +91,33 @@ def test_gen_parameters(src_axes, parameters):
 
 def test_gen_parameters_preprocess():
     def preprocess(param):
-        if param['x'] + param['y'] > 0:
+        if param["x"] + param["y"] > 0:
             return param
 
     src = dict(
         base={},
         axes=dict(
-            x='[-1, 0, 1]',
-            y='[-1, 0, 1]',
-        )
+            # `x` and `y` are chosen so that some combinations are
+            # filtered out:
+            x="[-1, 0, 1]",
+            y="[-1, 0, 1]",
+        ),
     )
     runspec = dict(preprocess=preprocess)
     parameters = list(gen_parameters(src, runspec))
     assert parameters == [
-        {'x': 0, 'y': 1},
-        {'x': 1, 'y': 0},
-        {'x': 1, 'y': 1},
+        # All the combinations of the `axes` that matches the
+        # constraint `x + y > 0`.
+        {"x": 0, "y": 1},
+        {"x": 1, "y": 0},
+        {"x": 1, "y": 1},
     ]
 
 
 RUNPY = {}
-RUNPY["default"] = r"""
+RUNPY[
+    "default"
+] = r"""
 def run(dirpath, **_):
     return {
         'command': ['python', '-i', dirpath],
@@ -111,7 +136,9 @@ def is_finished(dirpath, **_):
     return os.path.exists(os.path.join(dirpath, 'finished'))
 """
 
-RUNPY["noinput"] = """
+RUNPY[
+    "noinput"
+] = """
 def run(dirpath, **_):
     return {
         'command': ['python', '-c', r'import os; \
@@ -129,21 +156,16 @@ def make_runpy(tmpdir, code=RUNPY["default"], filename="run.py"):
     return str(run_file)
 
 
-def make_source(tmpdir, axes, base={},
-                format="{i}/run.json", filename="source.json"):
+def make_source(tmpdir, axes, base={}, format="{i}/run.json", filename="source.json"):
     source_file = str(tmpdir.join(filename))
-    dump_any(source_file, dict(
-        base=base,
-        axes=axes,
-        format=format,
-    ))
+    dump_any(source_file, dict(base=base, axes=axes, format=format))
     return source_file
 
 
-@pytest.mark.parametrize('num', [1, 3])
+@pytest.mark.parametrize("num", [1, 3])
 def test_gen(tmpdir, num):
-    source_file = make_source(tmpdir, axes={'alpha': repr(range(num))})
-    run_file = '/dev/null'
+    source_file = make_source(tmpdir, axes={"alpha": repr(range(num))})
+    run_file = "/dev/null"
     cli_gen(source_file, run_file)
 
     dirs = tmpdir.listdir(lambda p: p.check(dir=True))
@@ -152,10 +174,10 @@ def test_gen(tmpdir, num):
     assert all(exists)
 
 
-@pytest.mark.parametrize('num', [1, 3])
-@pytest.mark.parametrize('runpy', ['default', 'noinput'])
+@pytest.mark.parametrize("num", [1, 3])
+@pytest.mark.parametrize("runpy", ["default", "noinput"])
 def test_run(tmpdir, num, runpy):
-    source_file = make_source(tmpdir, axes={'alpha': repr(range(num))})
+    source_file = make_source(tmpdir, axes={"alpha": repr(range(num))})
     run_file = make_runpy(tmpdir, RUNPY[runpy])
     cli_gen(source_file, run_file)
     cli_run(source_file, run_file, None, None)
@@ -172,7 +194,7 @@ def test_lock(tmpdir):
     """
     Locked directory (i.e., with .lock file) should not be executed.
     """
-    source_file = make_source(tmpdir, axes={'alpha': 'range(2)'})
+    source_file = make_source(tmpdir, axes={"alpha": "range(2)"})
     run_file = make_runpy(tmpdir)
     cli_gen(source_file, run_file)
     tmpdir.ensure("0", ".lock")
@@ -184,10 +206,10 @@ def test_lock(tmpdir):
 
 
 def test_unlock(tmpdir):
-    source_file = make_source(tmpdir, axes={'alpha': 'range(2)'})
+    source_file = make_source(tmpdir, axes={"alpha": "range(2)"})
     run_file = make_runpy(tmpdir)
     cli_gen(source_file, run_file)
-    assert all(tmpdir.join(d, 'run.json').check() for d in '01')
+    assert all(tmpdir.join(d, "run.json").check() for d in "01")
     tmpdir.ensure("0", ".lock")
     tmpdir.ensure("1", ".lock")
     tmpdir.ensure("0", "some_result")
@@ -197,16 +219,20 @@ def test_unlock(tmpdir):
     assert not tmpdir.join("1", ".lock").check()
 
 
-@pytest.mark.parametrize('lockall', [False, True])
+@pytest.mark.parametrize("lockall", [False, True])
 def test_progress(tmpdir, capsys, lockall):
-    source_file = make_source(tmpdir, axes={
-        'alpha': 'range(3)',
-        'beta': 'range(2)',
-        'gamma': 'range(2)',
-    })
+    source_file = make_source(
+        tmpdir,
+        axes={
+            # `progress` command needs two or more axes.
+            "alpha": "range(3)",
+            "beta": "range(2)",
+            "gamma": "range(2)",
+        },
+    )
     run_file = make_runpy(tmpdir)
     cli_gen(source_file, run_file)
-    assert all(tmpdir.join(str(d), 'run.json').check() for d in range(12))
+    assert all(tmpdir.join(str(d), "run.json").check() for d in range(12))
     for d in range(7):
         tmpdir.ensure(str(d), ".lock")
         tmpdir.ensure(str(d), "finished")
@@ -215,21 +241,24 @@ def test_progress(tmpdir, capsys, lockall):
             tmpdir.ensure(str(d), ".lock")
 
     out0, err0 = capsys.readouterr()
-    assert out0 == err0 == ''
+    assert out0 == err0 == ""
 
     stream = io.StringIO()
-    print_table([
-        ['', '0', '1'],
-        ['0', 'OK', 'OK'],
-        ['1', 'OK', '50'],
-        ['2', '0', '0'],
-    ], file=stream)
+    print_table(
+        [
+            ["", "0", "1"],
+            ["0", "OK", "OK"],  # alpha=0
+            ["1", "OK", "50"],  # alpha=1
+            ["2", "0", "0"],  # alpha=2
+        ],
+        file=stream,
+    )
     table = stream.getvalue()
 
     cli_progress(source_file, run_file, False)
     out, err = capsys.readouterr()
     assert table in out
-    assert err == ''
+    assert err == ""
 
 
 def get_subcommands():
@@ -238,10 +267,10 @@ def get_subcommands():
     return action.choices.keys()
 
 
-@pytest.mark.parametrize('sub_command', [None] + list(get_subcommands()))
+@pytest.mark.parametrize("sub_command", [None] + list(get_subcommands()))
 def test_argparse_help(sub_command):
     parser = make_parser()
-    args = ['--help'] if sub_command is None else [sub_command, '--help']
+    args = ["--help"] if sub_command is None else [sub_command, "--help"]
     with pytest.raises(SystemExit) as errinfo:
         parser.parse_args(args)
     assert errinfo.value.code == 0
