@@ -73,6 +73,7 @@ import logging
 import os
 import subprocess
 import sys
+import typing
 from typing import (
     IO,
     Any,
@@ -95,6 +96,10 @@ logger = logging.getLogger("genrun")
 
 T = TypeVar("T")
 AxesDict = Dict[str, List]  # use OrderedDict?
+SrcDict = Dict[str, Any]
+RunSpec = Dict[str, Any]
+RunType = str  # "loop" or "array"; TODO: use Enum
+StrTable = Union[List[List[str]], List[Tuple[str]]]
 
 
 class GenRunExit(RuntimeError):
@@ -194,7 +199,7 @@ def dump_any(dest: Union[str, IO], obj, filetype: Optional[str] = None):
             dumper(obj, f)
 
 
-def src_eval(code):
+def src_eval(code: str) -> Iterable:
     import numpy
 
     return eval(code, vars(numpy))
@@ -247,7 +252,7 @@ def iter_axes(src_axes: Union[Dict[str, Any], List[Dict[str, Any]]]) -> IterAxes
     )
 
 
-def get_axes(src: Dict[str, Any], debug: bool = False) -> AxesDict:
+def get_axes(src: SrcDict, debug: bool = False) -> AxesDict:
     axes = collections.OrderedDict()  # type: AxesDict
     for name, code in iter_axes(src["axes"]):
         if isinstance(code, list):
@@ -264,7 +269,9 @@ def get_axes(src: Dict[str, Any], debug: bool = False) -> AxesDict:
     return axes
 
 
-def prepare_gen(src: Dict[str, Any], runspec: Dict[str, Any], debug: bool = False):
+def prepare_gen(
+    src: SrcDict, runspec: RunSpec, debug: bool = False
+) -> Tuple[AxesDict, Callable[[Dict], Union[None, Dict]], List[str]]:
     axes = get_axes(src, debug)
     preprocess = runspec.get("preprocess", lambda x: x)
     keys = list(axes.keys())
@@ -282,7 +289,7 @@ def unprocessed_parameters(
 
 
 def gen_parameters(
-    src: Dict[str, Any], runspec: Dict[str, Any], debug: bool = False
+    src: SrcDict, runspec: RunSpec, debug: bool = False
 ) -> Iterable[Dict[str, Any]]:
     axes, preprocess, keys = prepare_gen(src, runspec, debug)
     parameters = itertools.product(*[axes[name] for name in keys])
@@ -290,7 +297,7 @@ def gen_parameters(
     return filter(None, map(preprocess, unprocessed))
 
 
-def param_path(src: Dict[str, Any], basedir: str, i: int) -> str:
+def param_path(src: SrcDict, basedir: str, i: int) -> str:
     return os.path.join(basedir, src["format"].format(**locals()))
 
 
@@ -299,7 +306,9 @@ def is_unstarted(filepath: str) -> bool:
     return set(os.listdir(dirpath)) == {".lock", os.path.basename(filepath)}
 
 
-def two_step_generator(src, runspec, debug: bool, num_head=2):
+def two_step_generator(
+    src: SrcDict, runspec: RunSpec, debug: bool, num_head=2
+) -> Tuple[List[str], AxesDict, Iterable[Tuple[int, Iterable[Tuple[int, Dict]]]]]:
     axes, preprocess, keys = prepare_gen(src, runspec, debug)
     focused_keys = keys[:num_head]
     rest_keys = keys[num_head:]
@@ -332,7 +341,7 @@ def two_step_generator(src, runspec, debug: bool, num_head=2):
     return focused_keys, focused_axes, outer_iterator()
 
 
-def analyze_progress(src, runspec, debug: bool, source_file):
+def analyze_progress(src: SrcDict, runspec: RunSpec, debug: bool, source_file: str):
     basedir = os.path.dirname(source_file)
     is_finished = runspec["is_finished"]
 
@@ -360,7 +369,11 @@ def analyze_progress(src, runspec, debug: bool, source_file):
     return focused_keys, focused_axes, progress
 
 
-def progress_to_table(focused_keys, focused_axes, progress):
+def progress_to_table(
+    focused_keys: List[str],
+    focused_axes: AxesDict,
+    progress: Dict[Tuple[int, ...], Dict[str, int]],
+) -> List[List[str]]:
     xk, yk = focused_keys
     table = [[""] + list(map(str, range(len(focused_axes[xk]))))]
     for j in range(len(focused_axes[yk])):
@@ -382,7 +395,7 @@ def progress_to_table(focused_keys, focused_axes, progress):
     return table
 
 
-def load_run(run_file):
+def load_run(run_file: str) -> RunSpec:
     with open(run_file) as f:
         code = f.read()
     ns = dict(__file__=run_file)
@@ -390,7 +403,7 @@ def load_run(run_file):
     return ns
 
 
-def indices_to_range(indices):
+def indices_to_range(indices: "typing.Collection") -> str:
     """
     Convert a list of integers to the range format for sbatch and qsub.
 
@@ -434,9 +447,9 @@ def indices_to_range(indices):
     return ",".join(ranges)
 
 
-def print_table(table, sep="\t", **print_kwargs):
+def print_table(table: StrTable, sep: str = "\t", **print_kwargs):
     table = [list(map(str, row)) for row in table]
-    widths = list(map(max, zip(*(map(len, row) for row in table))))
+    widths = list(map(max, zip(*(map(len, row) for row in table))))  # type: List[int]
     for row in table:
         print(*[s.ljust(w) for s, w in zip(row, widths)], sep=sep, **print_kwargs)
 
@@ -444,7 +457,7 @@ def print_table(table, sep="\t", **print_kwargs):
 SOURCE_FILE_CANDIDATES = ["source.yaml", "source.json"]
 
 
-def find_source_file(source_file):
+def find_source_file(source_file: str) -> str:
     if not source_file:
         for source_file in SOURCE_FILE_CANDIDATES:
             if os.path.exists(source_file):
@@ -459,7 +472,7 @@ def find_source_file(source_file):
     return source_file
 
 
-def find_run_file(run_file: str):
+def find_run_file(run_file: str) -> str:
     if not run_file:
         directory = os.getcwd()
         parent = os.path.dirname(directory)
@@ -617,7 +630,7 @@ def run_array(source_file: str, run_file: str, param_files: Optional[List[str]])
         raise GenRunExit("{} failed".format(command))
 
 
-def cli_all(source_file: str, run_file: str, run_type):
+def cli_all(source_file: str, run_file: str, run_type: RunType):
     """
     Generate parameter files and then run them.
     """
@@ -628,7 +641,7 @@ def cli_all(source_file: str, run_file: str, run_type):
 
 
 def cli_run(
-    source_file: str, run_file: str, param_files: Optional[List[str]], run_type
+    source_file: str, run_file: str, param_files: Optional[List[str]], run_type: RunType
 ):
     """
     Run generated parameter files.
@@ -715,7 +728,7 @@ def cli_progress(source_file: str, run_file: str, debug: bool):
     xk, yk = focused_keys
     if len(focused_axes[xk]) > len(focused_axes[yk]):
         xk, yk = yk, xk
-        table = list(zip(*table))
+        table = list(zip(*table))  # type: ignore
 
     print("%finish of two outer-most axes:", *focused_keys)
     print()
@@ -913,7 +926,7 @@ def make_parser(doc: str = __doc__):
     return parser
 
 
-def main(args=None):
+def main(args: Optional[List[str]] = None):
     parser = make_parser()
     ns = parser.parse_args(args)
 
