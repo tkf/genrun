@@ -67,6 +67,7 @@ from __future__ import print_function
 
 import collections
 import copy
+import enum
 import functools
 import itertools
 import logging
@@ -92,13 +93,17 @@ __author__ = "Takafumi Arakaki"
 __license__ = None
 
 
+class RunType(enum.Enum):
+    loop = 1
+    array = 2
+
+
 logger = logging.getLogger("genrun")
 
 T = TypeVar("T")
 AxesDict = Dict[str, List]  # use OrderedDict?
 SrcDict = Dict[str, Any]
 RunSpec = Dict[str, Any]
-RunType = str  # "loop" or "array"; TODO: use Enum
 StrTable = Union[List[List[str]], List[Tuple[str]]]
 
 
@@ -630,7 +635,7 @@ def run_array(source_file: str, run_file: str, param_files: Optional[List[str]])
         raise GenRunExit("{} failed".format(command))
 
 
-def cli_all(source_file: str, run_file: str, run_type: RunType):
+def cli_all(source_file: str, run_file: str, run_type: Optional[RunType]):
     """
     Generate parameter files and then run them.
     """
@@ -641,7 +646,10 @@ def cli_all(source_file: str, run_file: str, run_type: RunType):
 
 
 def cli_run(
-    source_file: str, run_file: str, param_files: Optional[List[str]], run_type: RunType
+    source_file: str,
+    run_file: str,
+    param_files: Optional[List[str]],
+    run_type: Optional[RunType],
 ):
     """
     Run generated parameter files.
@@ -656,9 +664,9 @@ def cli_run(
                 " nor --use-loop is given.".format(run_file)
             )
     else:
-        run_type = "array" if "run_array" in runspec else "loop"
+        run_type = RunType.array if "run_array" in runspec else RunType.loop
 
-    if run_type == "array":
+    if run_type == RunType.array:
         run_array(source_file, run_file, param_files)
     else:
         run_loop(source_file, run_file, param_files)
@@ -844,7 +852,7 @@ def make_parser(doc: str = __doc__):
             dest="run_type",
             default=None,
             action="store_const",
-            const="array",
+            const=RunType.array,
             help="""
         In case run file contains both `run` and `run_array` function,
         indicate that `run_array` must be used.
@@ -855,7 +863,7 @@ def make_parser(doc: str = __doc__):
             dest="run_type",
             default=None,
             action="store_const",
-            const="loop",
+            const=RunType.loop,
             help="""
         Similar to --use-array but use `run` function.
         """,
