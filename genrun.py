@@ -75,6 +75,7 @@ import os
 import subprocess
 import sys
 import typing
+from shutil import which
 from typing import (
     IO,
     Any,
@@ -567,7 +568,9 @@ def run_loop(source_file: str, run_file: str, param_files: Optional[List[str]]):
             command,
             universal_newlines=True,
             stdin=subprocess.PIPE,
-            **dict(shell=isinstance(command, str), cwd=os.path.dirname(path), **cmdspec)
+            **dict(
+                shell=isinstance(command, str), cwd=os.path.dirname(path), **cmdspec
+            ),
         )
         proc.communicate(pinput)
         if proc.returncode != 0:
@@ -620,7 +623,7 @@ def run_array(source_file: str, run_file: str, param_files: Optional[List[str]])
         command,
         universal_newlines=True,
         stdin=subprocess.PIPE,
-        **dict(shell=isinstance(command, str), **cmdspec)
+        **dict(shell=isinstance(command, str), **cmdspec),
     )
     proc.communicate(pinput)
     if proc.returncode != 0:
@@ -802,11 +805,46 @@ def cli_cat(
     dump_any(sys.stdout if output == "-" else output, sources, output_type)
 
 
-def make_parser(doc: str = __doc__):
+def cli_help():
+    """
+    Read `genrun`'s documentation in `man`.
+    """
+
+    for name in ["rst2man.py", "rst2man"]:
+        rst2man_cmd = which(name)
+        if rst2man_cmd is not None:
+            break
+    else:
+        logger.warn("rst2man not found")
+        print(__doc__)
+        return
+
+    if not which("man"):
+        logger.warn("man not found")
+        print(__doc__)
+        return
+
+    rst2man_proc = subprocess.Popen(
+        [rst2man_cmd], stdout=subprocess.PIPE, stdin=subprocess.PIPE
+    )
+    man_proc = subprocess.Popen(["man", "--local-file", "-"], stdin=rst2man_proc.stdout)
+    rst2man_proc.communicate(__doc__.encode("utf-8"))
+    man_proc.communicate()
+
+    if rst2man_proc.returncode != 0:
+        raise GenRunExit("rst2man failed with code {}".format(rst2man_proc.returncode))
+    if man_proc.returncode != 0:
+        raise GenRunExit("man failed with code {}".format(man_proc.returncode))
+
+
+def make_parser():
     import argparse
 
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter, description=doc
+        description="""
+        Generate parameter files and run a specified program for each
+        of them.  Run `%(prog)s help` to read full documentation.
+        """
     )
     subparsers = parser.add_subparsers()
 
@@ -930,6 +968,8 @@ def make_parser(doc: str = __doc__):
     p.add_argument(
         "--path-key", help="Include `source_file` with this key in each record."
     )
+
+    p = subp("help", cli_help)
 
     return parser
 
