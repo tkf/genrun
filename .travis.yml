@@ -6,6 +6,15 @@ python:
   - "3.5"
   - "3.7"
 
+matrix:
+  include:
+    - python: "3.7"
+      env:
+        - TOXENV=style
+    - python: "3.7"
+      env:
+        - TOXENV=type
+
 before_install:
   - pip install --quiet tox
 
