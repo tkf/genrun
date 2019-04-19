@@ -713,7 +713,16 @@ def cli_gen(source_file: str, run_file: str, debug: bool = False):
     runspec = load_run(run_file)
 
     basedir = os.path.dirname(source_file)
-    for i, param in enumerate(gen_parameters(src, runspec, debug)):
+    parameters = list(gen_parameters(src, runspec, debug))
+    for i in range(len(parameters)):
+        dirpath = os.path.dirname(param_path(src, basedir, i))
+        if os.path.exists(dirpath):
+            raise GenRunExit(
+                "Directory {0!r} exists. Aborting parameter file generation.\n"
+                "Please remove {0!r} first.".format(dirpath)
+            )
+
+    for i, param in enumerate(parameters):
         filepath = param_path(src, basedir, i)
         os.makedirs(os.path.dirname(filepath))
         dump_any(filepath, param)

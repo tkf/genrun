@@ -5,6 +5,7 @@ import numpy
 import pytest
 
 from genrun import (
+    GenRunExit,
     cli_gen,
     cli_progress,
     cli_run,
@@ -182,6 +183,18 @@ def test_gen(tmpdir, num):
     assert len(dirs) == num
     exists = [d.join("run.json").check() for d in dirs]
     assert all(exists)
+
+
+def test_gen_twice(tmpdir):
+    source_file = make_source(tmpdir, axes={"alpha": [0]})
+    run_file = "/dev/null"
+    cli_gen(source_file, run_file)
+
+    dirs = tmpdir.listdir(lambda p: p.check(dir=True))
+    assert len(dirs) == 1
+
+    with pytest.raises(GenRunExit):
+        cli_gen(source_file, run_file)
 
 
 @pytest.mark.parametrize("num", [1, 3])
