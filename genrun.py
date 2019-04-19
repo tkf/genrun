@@ -205,9 +205,11 @@ import functools
 import itertools
 import logging
 import os
+import signal
 import subprocess
 import sys
 import typing
+from contextlib import contextmanager
 from shutil import which
 from typing import (
     IO,
@@ -257,6 +259,27 @@ def coroutine_send(func: Callable[..., Iterable[T]]) -> Callable[..., Callable[.
         return cr.send
 
     return start
+
+
+@contextmanager
+def ignoring(sig):
+    """
+    Context manager for ignoring signal `sig`.
+
+    For example,::
+
+        with ignoring(signal.SIGINT):
+            do_something()
+
+    would ignore user's ctrl-c during ``do_something()``.  This is
+    useful when launching interactive program (in which ctrl-c is a
+    valid keybinding) from Python.
+    """
+    s = signal.signal(sig, signal.SIG_IGN)
+    try:
+        yield
+    finally:
+        signal.signal(sig, s)
 
 
 class DataFormat:
@@ -992,7 +1015,8 @@ def cli_help():
     )
     man_proc = subprocess.Popen(["man", "--local-file", "-"], stdin=rst2man_proc.stdout)
     rst2man_proc.communicate(__doc__.encode("utf-8"))
-    man_proc.communicate()
+    with ignoring(signal.SIGINT):
+        man_proc.communicate()
 
     if rst2man_proc.returncode != 0:
         raise GenRunExit("rst2man failed with code {}".format(rst2man_proc.returncode))
