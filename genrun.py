@@ -118,8 +118,8 @@ file:
 Manual
 ======
 
-Source parameter file (`source.yaml`)
---------------------------------------
+Source parameter file (`source.{toml,yaml,json}`)
+-------------------------------------------------
 
 ``base``: `dict`
     The base parameter.  This is the non-varying part of the full
@@ -281,6 +281,16 @@ class DataFormat:
             self.dump(obj, f)
 
 
+class TOML(DataFormat):
+    extensions = (".toml",)
+
+    def __init__(self):
+        import toml
+
+        self.load = toml.load
+        self.dump = toml.dump
+
+
 class YAML(DataFormat):
     extensions = (".yaml", ".yml")
 
@@ -323,8 +333,11 @@ class NDJSON(DataFormat):
             file.write("\n")
 
 
+DATAFORMAT_LIST = [TOML, YAML, JSON, NDJSON]
+
+
 def dataformat_for(path: str) -> DataFormat:
-    for formatclass in [YAML, JSON, NDJSON]:
+    for formatclass in DATAFORMAT_LIST:
         if formatclass.can_load(path):
             return formatclass()
     raise ValueError("data format of {!r} is not supported".format(path))
@@ -610,7 +623,7 @@ def print_table(table: StrTable, sep: str = "\t", **print_kwargs):
         print(*[s.ljust(w) for s, w in zip(row, widths)], sep=sep, **print_kwargs)
 
 
-SOURCE_FILE_CANDIDATES = ["source.yaml", "source.json"]
+SOURCE_FILE_CANDIDATES = ["source.toml", "source.yaml", "source.json"]
 
 
 def find_source_file(source_file: str) -> str:
@@ -1105,7 +1118,9 @@ def make_parser():
     )
     p.add_argument("--debug", action="store_true")
     p.add_argument(
-        "--output-type", default="ndjson", choices=("ndjson", "json", "yaml")
+        "--output-type",
+        default="ndjson",
+        choices=[formatclass.extensions[0][1:] for formatclass in DATAFORMAT_LIST],
     )
     p.add_argument(
         "--output",

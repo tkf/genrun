@@ -115,8 +115,8 @@ file:
 Manual
 ======
 
-Source parameter file (`source.yaml`)
---------------------------------------
+Source parameter file (`source.{toml,yaml,json}`)
+-------------------------------------------------
 
 ``base``: `dict`
     The base parameter.  This is the non-varying part of the full

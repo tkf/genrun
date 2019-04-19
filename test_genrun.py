@@ -19,6 +19,16 @@ from genrun import (
 )
 
 
+def test_load_toml(tmpdir):
+    toml_path = tmpdir.join("file.toml")
+    toml_code = """
+    a = ["b", "c"]
+    """
+    toml_path.write(textwrap.dedent(toml_code))
+    data = load_any(str(toml_path))
+    assert data == {"a": ["b", "c"]}
+
+
 def test_load_yaml(tmpdir):
     yaml_path = tmpdir.join("file.yaml")
     yaml_code = """

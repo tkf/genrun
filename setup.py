@@ -17,5 +17,5 @@ setup(
         "Development Status :: 3 - Alpha",
         # see: http://pypi.python.org/pypi?%3Aaction=list_classifiers
     ],
-    install_requires=["numpy", "PyYAML"],
+    install_requires=["numpy", "PyYAML", "toml"],
 )
