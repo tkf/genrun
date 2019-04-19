@@ -715,7 +715,8 @@ def cli_gen(source_file: str, run_file: str, debug: bool = False):
     parameters = list(gen_parameters(src, runspec, debug))
     basedir = os.path.dirname(source_file)
     filepathlist = [param_path(src, basedir, i) for i in range(len(parameters))]
-    dirpathlist = list(map(os.path.dirname, filepathlist))
+    dirpathlist = list(map(os.path.dirname, filepathlist))  # type: ignore
+    dirpathlist  # type: List[str]
     if len(set(dirpathlist)) < len(dirpathlist):
         raise GenRunExit(
             "`format` for parameter file path in source file {!r} does not"
