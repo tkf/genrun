@@ -19,4 +19,5 @@ setup(
         # see: http://pypi.python.org/pypi?%3Aaction=list_classifiers
     ],
     install_requires=["numpy", "PyYAML", "toml"],
+    entry_points={"console_scripts": ["genrun = genrun:main"]},
 )
