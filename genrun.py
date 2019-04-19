@@ -153,12 +153,8 @@ signature specified below.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Function `run` must accept *any* keyword arguments, including the ones
-listed below, and return a dictionary with the entry ``"command"``
-whose value is a string or a list of the string to specify the command
-to run for each parameter.  Optionally, it can have the entry
-``"input"`` whose value is a string to be provided to the stdin of the
-command.  Other entries in the dictionary is passed to
-`subprocess.Popen`.
+listed here, and return a dictionary with the keys specified in the
+section below.
 
 `filepath`: `str`
     The file path to the generated parameter file; i.e., the path
@@ -194,6 +190,29 @@ parameter specified by `ids` or `array`.
 
 `source`: `dict`
     The parsed source parameter file.
+
+
+Returned `dict` from `run` and `run_array`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``"command"``: `str` or `list` of `str`
+    This entry is required.  It specifies the command to run for each
+    parameter.
+
+``"input"``: `str`
+    This is fed to the stdin of the `command`.
+
+Other entries in the dictionary is passed to `subprocess.Popen`.
+Following keys have specific default value.
+
+``"shell"``: `bool`
+    By default, this is `True`/`False` if `command` is a `str`/`list`.
+
+``"cwd"``:
+    For `run` function, this defaults to `dirpath` (the directory in
+    which the parameter file is generated).
+
+Keys ``"universal_newlines"`` and ``"stdin"`` cannot be set.
 '''
 
 from __future__ import print_function
