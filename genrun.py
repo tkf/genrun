@@ -732,8 +732,7 @@ def cli_gen(source_file: str, run_file: str, debug: bool = False):
                 " non-existing directory.".format(dirpath, source_file)
             )
 
-    for i, param in enumerate(parameters):
-        filepath = param_path(src, basedir, i)
+    for param, filepath in zip(parameters, filepathlist):
         os.makedirs(os.path.dirname(filepath))
         dump_any(filepath, param)
 
