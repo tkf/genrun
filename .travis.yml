@@ -8,18 +8,24 @@ python:
 
 matrix:
   include:
-    - python: "3.7"
+    - &check
+      python: "3.7"
       env:
         - TOXENV=style
-    - python: "3.7"
+      script:
+        - tox
+    - <<: *check
       env:
         - TOXENV=type
 
 before_install:
-  - pip install --quiet tox
+  - pip install --quiet tox coveralls
 
 script:
-  - tox
+  - tox -- --cov=genrun
+
+after_success:
+  - coveralls
 
 notifications:
   email: false

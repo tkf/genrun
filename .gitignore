@@ -1,4 +1,5 @@
 *.pyc
+.coverage
 .mypy_cache
 /*.egg-info
 /.cache
