@@ -197,6 +197,23 @@ def test_gen_twice(tmpdir):
         cli_gen(source_file, run_file)
 
 
+def test_gen_non_unique_dirpath(tmpdir):
+    source_file = make_source(
+        tmpdir,
+        axes={"alpha": [0, 1, 2]},
+        # This `format` does not generate unique directory for each JSON file:
+        format="{i}-run.json",
+    )
+    run_file = "/dev/null"
+
+    with pytest.raises(GenRunExit) as exc_info:
+        cli_gen(source_file, run_file)
+
+    msg = str(exc_info.value)
+    assert "does not" in msg
+    assert "unique directory" in msg
+
+
 @pytest.mark.parametrize("num", [1, 3])
 @pytest.mark.parametrize("runpy", ["default", "noinput"])
 def test_run(tmpdir, num, runpy):

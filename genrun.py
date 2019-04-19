@@ -712,14 +712,25 @@ def cli_gen(source_file: str, run_file: str, debug: bool = False):
     src = load_any(source_file)
     runspec = load_run(run_file)
 
-    basedir = os.path.dirname(source_file)
     parameters = list(gen_parameters(src, runspec, debug))
-    for i in range(len(parameters)):
-        dirpath = os.path.dirname(param_path(src, basedir, i))
+    basedir = os.path.dirname(source_file)
+    filepathlist = [param_path(src, basedir, i) for i in range(len(parameters))]
+    dirpathlist = list(map(os.path.dirname, filepathlist))
+    if len(set(dirpathlist)) < len(dirpathlist):
+        raise GenRunExit(
+            "`format` for parameter file path in source file {!r} does not"
+            " create a unique directory for each parameter file.\n"
+            "Note that each parameter file has to have its dedicated parent"
+            " directory.".format(
+                source_file
+            )
+        )
+    for dirpath in dirpathlist:
         if os.path.exists(dirpath):
             raise GenRunExit(
                 "Directory {0!r} exists. Aborting parameter file generation.\n"
-                "Please remove {0!r} first.".format(dirpath)
+                "Please remove {0!r} first or edit `format` in {1!r} to specify"
+                " non-existing directory.".format(dirpath, source_file)
             )
 
     for i, param in enumerate(parameters):
