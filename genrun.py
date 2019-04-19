@@ -471,12 +471,12 @@ def get_axes(src: SrcDict, debug: bool = False) -> AxesDict:
             continue
         try:
             axes[name] = list(src_eval(code))
-        except:
-            if not debug:
-                raise
-            import pdb
+        except Exception:
+            if debug:
+                import pdb
 
-            pdb.post_mortem()
+                pdb.post_mortem()
+            raise
     return axes
 
 
@@ -1068,6 +1068,15 @@ def make_parser():
         p.set_defaults(func=func)
         return p
 
+    def add_argument_debug(p):
+        p.add_argument(
+            "--debug",
+            action="store_true",
+            help="""
+            Drop into pdb if the code in `axes` throws an exception.
+            """,
+        )
+
     def add_argument_source_file(p):
         p.add_argument(
             "--source-file",
@@ -1114,7 +1123,7 @@ def make_parser():
         )
 
     p = subp("gen", cli_gen)
-    p.add_argument("--debug", action="store_true")
+    add_argument_debug(p)
     add_argument_source_file(p)
     add_argument_run_file(p)
 
@@ -1138,17 +1147,18 @@ def make_parser():
     add_argument_run_file(p)
 
     p = subp("progress", cli_progress)
-    p.add_argument("--debug", action="store_true")
+    add_argument_debug(p)
     add_argument_source_file(p)
     add_argument_run_file(p)
 
     p = subp("len", cli_len)
+    add_argument_debug(p)
     add_argument_source_file(p)
     add_argument_run_file(p)
 
     p = subp("axes-keys", cli_axes_keys)
+    add_argument_debug(p)
     add_argument_source_file(p)
-    p.add_argument("--debug", action="store_true")
     p.add_argument("--delimiter", default="\n")
     p.add_argument("--end", default="\n")
 
@@ -1159,7 +1169,7 @@ def make_parser():
         nargs="+",
         help="Path to parameter configuration files.",
     )
-    p.add_argument("--debug", action="store_true")
+    add_argument_debug(p)
     p.add_argument(
         "--output-type",
         default="ndjson",
