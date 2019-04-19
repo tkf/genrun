@@ -259,8 +259,34 @@ def coroutine_send(func: Callable[..., Iterable[T]]) -> Callable[..., Callable[.
     return start
 
 
-class YamlModule(object):
-    def __init__(self, yaml):
+class DataFormat:
+    extensions = ()  # type: Tuple[str, ...]
+
+    @classmethod
+    def can_load(cls, path: str):
+        return path.lower().endswith(cls.extensions)
+
+    def load(self, file: IO):
+        raise NotImplementedError
+
+    def dump(self, obj, file: IO):
+        raise NotImplementedError
+
+    def loadfile(self, path: str):
+        with open(path) as f:
+            return self.load(f)
+
+    def dumpfile(self, obj, path: str):
+        with open(path, "w") as f:
+            self.dump(obj, f)
+
+
+class YAML(DataFormat):
+    extensions = (".yaml", ".yml")
+
+    def __init__(self):
+        import yaml
+
         try:
             self.load = yaml.safe_load
         except AttributeError:
@@ -269,8 +295,12 @@ class YamlModule(object):
         self.dump = yaml.dump
 
 
-class JsonModule(object):
-    def __init__(self, json):
+class JSON(DataFormat):
+    extensions = (".json",)
+
+    def __init__(self):
+        import json
+
         self.json = json
         self.load = json.load
 
@@ -278,12 +308,13 @@ class JsonModule(object):
         self.json.dump(obj, file, sort_keys=True)
 
 
-class NDJsonModule(object):
-    def __init__(self, json):
-        self.json = json
+class NDJSON(DataFormat):
+    extensions = (".ndjson",)
 
-    def load(self, file):
-        raise NotImplementedError
+    def __init__(self):
+        import json
+
+        self.json = json
 
     def dump(self, obj, file):
         json = self.json
@@ -292,30 +323,18 @@ class NDJsonModule(object):
             file.write("\n")
 
 
-def param_module(path: str):
-    if path.lower().endswith((".yaml", ".yml")):
-        import yaml
-
-        return YamlModule(yaml)
-    elif path.lower().endswith(".json"):
-        import json
-
-        return JsonModule(json)
-    elif path.lower().endswith(".ndjson"):
-        import json
-
-        return NDJsonModule(json)
-    else:
-        raise ValueError("data format of {!r} is not supported".format(path))
+def dataformat_for(path: str) -> DataFormat:
+    for formatclass in [YAML, JSON, NDJSON]:
+        if formatclass.can_load(path):
+            return formatclass()
+    raise ValueError("data format of {!r} is not supported".format(path))
 
 
 def load_any(path: str) -> Dict:
     """
     Load data from given path; data format is determined by file extension
     """
-    loader = param_module(path).load
-    with open(path) as f:
-        return loader(f)
+    return dataformat_for(path).loadfile(path)
 
 
 def dump_any(dest: Union[str, IO], obj, filetype: Optional[str] = None):
@@ -329,13 +348,11 @@ def dump_any(dest: Union[str, IO], obj, filetype: Optional[str] = None):
         # Prepend '.' since param_module dispatches extension...
         filetype = "." + filetype  # TODO: refactoring
 
-    dumper = param_module(filetype).dump
-    if hasattr(dest, "write"):
-        dumper(obj, dest)
+    dataformat = dataformat_for(filetype)
+    if isinstance(dest, str):
+        dataformat.dumpfile(obj, dest)
     else:
-        assert isinstance(dest, str)
-        with open(dest, "w") as f:
-            dumper(obj, f)
+        dataformat.dump(obj, dest)
 
 
 def src_eval(code: str) -> Iterable:
