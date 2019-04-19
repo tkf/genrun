@@ -262,7 +262,7 @@ def coroutine_send(func: Callable[..., Iterable[T]]) -> Callable[..., Callable[.
 
 
 @contextmanager
-def ignoring(sig):
+def ignoring(sig: signal.Signals):
     """
     Context manager for ignoring signal `sig`.
 
@@ -991,7 +991,7 @@ def cli_cat(
     dump_any(sys.stdout if output == "-" else output, sources, output_type)
 
 
-def cli_help():
+def cli_help() -> None:
     """
     Read `genrun`'s documentation in `man`.
     """
