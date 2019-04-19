@@ -721,9 +721,7 @@ def cli_gen(source_file: str, run_file: str, debug: bool = False):
             "`format` for parameter file path in source file {!r} does not"
             " create a unique directory for each parameter file.\n"
             "Note that each parameter file has to have its dedicated parent"
-            " directory.".format(
-                source_file
-            )
+            " directory.".format(source_file)
         )
     for dirpath in dirpathlist:
         if os.path.exists(dirpath):
