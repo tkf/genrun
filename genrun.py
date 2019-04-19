@@ -208,7 +208,7 @@ Following keys have specific default value.
 ``"shell"``: `bool`
     By default, this is `True`/`False` if `command` is a `str`/`list`.
 
-``"cwd"``:
+``"cwd"``: `str`
     For `run` function, this defaults to `dirpath` (the directory in
     which the parameter file is generated).
 
