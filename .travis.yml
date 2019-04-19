@@ -1,0 +1,16 @@
+sudo: false
+language: python
+dist: xenial  # required for Python >= 3.7
+
+python:
+  - "3.5"
+  - "3.7"
+
+before_install:
+  - pip install --quiet tox
+
+script:
+  - tox
+
+notifications:
+  email: false
